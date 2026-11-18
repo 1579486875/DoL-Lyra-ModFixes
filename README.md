@@ -13,7 +13,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
 | 模组数 | 56（其中 15 个为本次新建补丁模组） |
-| APK | 182,355,402 字节（173.91 MB），SHA256 `E41E8EBF5BE61B2EB7CBDC58EC64BC097716D9E74E0C242DAC5BBEE47E616EC5`，已重签名（keystore `dol.jks`，alias `dol`） |
+| APK | 182,359,498 字节（173.91 MB），SHA256 `2E0D9929947BA2587DEFDB74B9E3848145DF2B4ECCCAE4C9433B436BF24A9C4B`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -95,3 +95,66 @@ docs/          逐轮审查报告
 ## 许可
 
 补丁模组为本仓库原创，可自由使用。原游戏与各模组著作权归其作者。
+
+## 第六轮（U01–U41，27 轮）：i18n 深度审查
+
+这一轮专攻上一轮 odyShapescn 事件暴露的系统性问题。
+
+### 关键结论：ModI18N 的匹配策略
+
+	ryReplaceStringFuzzyWithHintIndex() 的实际逻辑（读自 dist/i18nLoad.js）：
+
+1. 先试 pos、pos±1、pos±2
+2. 失败后在 **[pos-10, pos+len+30] 窗口内**用正则兜底
+3. **窗口外直接 console.error 并跳过**
+
+### 全量测量结果
+
+| 项 | 值 |
+|---|---|
+| i18n 条目总数 | 190,234 |
+| 有  的条目 | 190,201 |
+| pos 精确命中 | 158,912（83.55%） |
+| pos 偏移但窗口内能兜底 | 31,121（16.36%） |
+| **会被跳过** | **168（0.088%）** |
+
+### 168 条失败的分布与处置
+
+**全部集中在 Widgets variablesStatic，偏移统一为 -375 字符**。
+
+| 类型 | 数量 | 处置 |
+|---|---|---|
+| 追加 cn_name（物品中文名） | 16 | ✅ 已注入 |
+| 展示文本数组 | 2 | ✅ 已注入 |
+| message/description 等展示性键 | 145 | ✅ 已注入 |
+| setup.breastsizes / setup.penisSizes | 2 | ⛔ **故意不注入** |
+| setup.bodyShapes（加 bodyShapescn） | 1 | ✅ 由 BodyShapes CN Fix 补 |
+| 纯符号 ]>>（不唯一） | 2 | ⛔ 跳过 |
+
+**为什么那 2 条必须保持英文**：setup.breastsizes 是**尺寸等级名数组**，游戏代码用 "small" / "large" 这些值做比较与索引。译成中文会让所有尺寸判断失效。它们**恰好因为 pos 偏移而没被应用**，保持英文 = 逻辑正确。
+
+### 实际注入
+
+U13_inject.py 在 inject6.py 之后对 Widgets variablesStatic 做 163 条精确替换（ 在 passage 内唯一才动手），**0 未命中**。
+
+构建顺序固定为：
+
+`
+inject6.py  →  U13_inject.py  →  rebuild2.py
+`
+
+uild_all.py 封装了前两步。
+
+### 其他维度结论
+
+| 维度 | 结果 |
+|---|---|
+| CSS 类名覆盖 | 多模组覆盖本体类名，但**全部用 ID 限定作用域**（#bn-body-panel .settingsHeader 等），无全局污染 |
+| 加载顺序 | dependenceInfo 全部满足；loadBefore/loadAfter 全部满足 |
+| 分辨率适配 | viewport 标准；67 个 @media；width:2000px 是 .debugPassages 调试样式 |
+| 字体 | 全部 data: 内嵌；/fonts/Roschild.ttf 外部引用被后面的内嵌版覆盖 |
+| 存档兼容 | $SchoolOrder 等对象变量都有 <<if .y is undefined>><<set ...>><</if>> 子键兜底 |
+| 全局污染 | 252 个 window.*，仅 1 处「冲突」（MapleBirchCE 只是**代理读取** window.EdenCheats，非覆盖） |
+| 资源体积 | 解压 232.7 MB；index.html 100.58 MB 是架构限制；重复图片极少 |
+| HTML 结构 | 	w-passagedata 16088/16088 配对；重复 passage 0；boot.json 非法 0 |
+| 路径大小写 | 508 条静态引用，**0 条大小写不符** |
