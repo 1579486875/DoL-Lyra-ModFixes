@@ -1,4 +1,4 @@
-# DoL-Lyra-ModFixes
+﻿# DoL-Lyra-ModFixes
 
 Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审查与修复集**。
 
@@ -12,10 +12,10 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | 游戏 | DoL 0.5.12.13 + ModI18N 1.0.1a |
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
-| 模组数 | 53（其中 12 个为本次新建补丁模组） |
-| APK | 182 MB 级，已重签名（keystore `dol.jks`，alias `dol`） |
+| 模组数 | 54（其中 13 个为本次新建补丁模组） |
+| APK | 182,351,306 字节（173.90 MB），SHA256 `8057C3CD3247C76631C0B7EF97FB25E0FA7D517D3E732568BDF5558AAA36ED66`，已重签名（keystore `dol.jks`，alias `dol`） |
 
-## 修复清单（26 项）
+## 修复清单（27 项）
 
 ### 崩溃类
 
@@ -67,6 +67,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | 24 | BabyHawk × 枯木逢春 5 个 widget 同名覆盖（数据源不同：`$childRecords` vs `maplebirch.get('BirdTower')`） | 移除 BabyHawk（枯木逢春自带完整鹰塔） |
 | 25 | ClothesExtra `Cargopants` 重复定义（identical except index） | 删重复条 |
 | 26 | DoLSims `additionFile` 重复 131 条（320→189） | 去重 |
+| 27 | 汉化包译文里的 8 处宏闭合错误（7× `<<link>>` + `Police Cell` 的 `<<if>>`） | `I18n Macro Fix 1.2.0` |
 
 ## 目录
 
