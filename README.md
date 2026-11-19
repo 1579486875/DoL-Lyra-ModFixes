@@ -1171,3 +1171,94 @@ function typeTable() {
 都可能在同一些位置失配，于是出现「烤入漏了、运行时也补不上」。
 
 本轮的解法是：**对确认残留的项做硬替换**，不依赖任何一方的匹配逻辑。
+
+## 第二十二轮（致命 bug：widget 嵌套导致 variablesStatic 崩溃）
+
+用户报了一个连锁性错误：
+
+```
+Error [StoryInit]: <<variablesStatic>>: errors within widget code
+(<<script>>: bad evaluation: Unexpected end of input)
+```
+
+**这一个错误导致了用户看到的所有问题**：
+
+- `setup.description_CN is not a function`
+- 寄生虫名不翻译
+- `面部风格: undefined`
+- 各种 `NPC_CN_*` 相关的报错
+
+因为 `variablesStatic` 是整个游戏的静态变量初始化入口，它一崩，
+**后面所有 `setup.*` 定义（包括我加的）全部不执行**。
+
+### 根因：我自己造的 widget 嵌套
+
+上一轮 `SF01_missing_symbols.py` 为了补 `<<wTimerProgress>>`，
+把 widget 插在了 `<<set setup.bodyShapes ...>>` 之后：
+
+```do
+<<set setup.bodyShapes to ["classic", "slender", "curvy", "soft"]>>
+<<widget "wTimerProgress">>
+  ...
+<</widget>>
+```
+
+**但 `bodyShapes` 位于 `<<widget "variablesStatic">>` 内部**！
+
+SugarCube **不允许 widget 嵌套**，于是：
+
+```
+<<widget "variablesStatic">>
+  ...
+  <<widget "wTimerProgress">>      ← 这里
+    ...
+  <</widget>>                       ← 被当成 variablesStatic 的结束
+  ...（剩下的内容全成了孤儿）
+<</widget>>
+```
+
+`variablesStatic` 在 `wTimerProgress` 中间就被截断，后面的 `<<set>>` 全部落在 widget 之外，
+`<<script>>` 块也因此不完整 → `Unexpected end of input`。
+
+### 修复
+
+**1. 修正 `SF01` 的插入锚点**
+
+从 `bodyShapes`（widget 内部）改为 `variablesStatic` 的闭合标签之后（passage 级别）：
+
+```python
+VS_OPEN = '&lt;&lt;widget "variablesStatic"&gt;&gt;'
+VS_CLOSE = '&lt;&lt;/widget&gt;&gt;'
+i = data.find(VS_OPEN)
+j = data.find(VS_CLOSE, i) + len(VS_CLOSE)
+data = data[:j] + "\n" + e_defs + data[j:]
+```
+
+**2. 新增 `TF01_nest_guard.py` 作为构建收尾守卫**
+
+每次构建最后检查全库 widget 嵌套，发现就自动把内层块剪切出来放到外层闭合之后。
+最多迭代 10 轮。
+
+### 校验结果
+
+```
+variablesStatic 长度        60311（修复前 52042，被截断了 8K）
+variablesStatic 内 widget   0
+全库 widget 嵌套            0
+setup.description_CN        ✅
+wTimerProgress              ✅
+NPC_CN_NAME 宏              ✅
+faceVariantOptions 含妆容    ✅
+```
+
+### 方法论：这是「改 A 打坏 B」的第七次
+
+前六次分别栽在：代码保护误杀、faceVariant 键配对、全局替换伤及 97 处合法引用、
+撇号转义、`_is_code_like` 纯标识符、`pos` 偏移。
+
+这次是**插入位置选在了一个有语义约束的上下文里**（widget 内部）。
+
+**教训**：往 Twine passage 里插内容之前，必须确认**目标位置所在的语法层级**。
+`<<set>>` 之间 ≠ passage 级别 —— 它可能在 `<<widget>>` / `<<if>>` / `<<for>>` 里面。
+
+**已固化的检查**：`TF01_nest_guard.py` 在每次构建末尾强制跑，任何嵌套都会被自动修掉并打印。

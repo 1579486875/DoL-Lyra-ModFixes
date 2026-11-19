@@ -2,7 +2,8 @@
   1) setup.description_CN 函数（i18n 引用了但没提供）
   2) <<wTimerProgress>> widget（报 does not exist，补一份到最早注册的位置）
 
-插入位置：Widgets variablesStatic 的 bodyShapes 之后（那里一定最早执行）。
+插入位置：variablesStatic widget 的闭合标签之后（passage 级别）。
+绝不能插在 bodyShapes 后面 —— 那在 widget 内部，会造成 widget 嵌套。
 """
 import html as H
 import os
@@ -77,18 +78,22 @@ def main():
         print("（已存在，跳过）")
         return 0
 
-    e_anchor = H.escape(ANCHOR, quote=False)
     e_defs = H.escape(DEFS, quote=False)
 
-    if e_anchor in data:
-        data = data.replace(e_anchor, e_anchor + e_defs, 1)
-        print("✅ 已插入（转义形态）")
-    elif ANCHOR in data:
-        data = data.replace(ANCHOR, ANCHOR + DEFS, 1)
-        print("✅ 已插入（未转义）")
-    else:
-        print("❌ 未找到锚点")
+    # 新锚点：variablesStatic widget 的闭合标签（passage 级别，不在任何 widget 内）
+    VS_OPEN = '&lt;&lt;widget "variablesStatic"&gt;&gt;'
+    VS_CLOSE = '&lt;&lt;/widget&gt;&gt;'
+    i = data.find(VS_OPEN)
+    if i < 0:
+        print("❌ 找不到 variablesStatic")
         return 1
+    j = data.find(VS_CLOSE, i)
+    if j < 0:
+        print("❌ 找不到 variablesStatic 的闭合")
+        return 1
+    j += len(VS_CLOSE)
+    data = data[:j] + "\n" + e_defs + data[j:]
+    print("✅ 已插到 variablesStatic 之后（passage 级别，不会造成 widget 嵌套）")
 
     open(HTML, "wb").write(data.encode("utf-8"))
     print(f"写出: {HTML}  ({os.path.getsize(HTML):,} 字节)")
