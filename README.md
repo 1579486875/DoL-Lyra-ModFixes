@@ -12,8 +12,8 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | 游戏 | DoL 0.5.12.13 + ModI18N 1.0.1a |
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
-| 模组数 | 58（其中 17 个为本次新建补丁模组） |
-| APK | 182,375,882 字节（173.93 MB），SHA256 `8D6FD796B3C8B0D3331880A44216438986959FC9107E916A8337CEA609B9221E`，已重签名（keystore `dol.jks`，alias `dol`） |
+| 模组数 | 59（其中 18 个为本次新建补丁模组） |
+| APK | 182,375,882 字节（173.93 MB），SHA256 `5E773989194603D7528439624D4EE20E29B50091672749C86F5EFEEE403BA278`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -233,3 +233,50 @@ Crime Name CN 1.0.0：**只改值、不动键**。
 | trespassing | trespassing | 非法闯入 |
 
 顺带补了 setup.crimeDescs（犯罪事件描述）7 条：general / escaping prison / a high-profile theft involving a noble's wedding cake 等，其中包括 debug: "wearing clothes of mixed fabrics, you sick fuck" 这条作者的玩笑条目。
+## 第九轮（X01–X26）：NPC 名中文化 —— 挖出汉化包引用了 5 个不存在的符号
+
+社交面板里显示 Bailey 监护人，其中 监护人 是中文、Bailey 是英文。
+
+### 排查路径
+
+1. Bailey 不是静态文本 —— 它来自 V.NPCName[i].nam（**游戏数据**），i18n 只处理静态文本。
+2. 但 i18n 确实动过这里。查 i18n.json 发现 4 条：
+
+`
+f = '_npcData.nam'
+t = '<<NPC_CN_NAME _npcData.nam>>'
+`
+
+3. 于是去搜 NPC_CN_NAME 的定义 —— **游戏本体 + 全部 56 个模组里，一处都没有。**
+
+### 汉化包一共引用了 5 个不存在的东西
+
+| 引用 | 出现次数 | 形式 | 后果 |
+|---|---|---|---|
+| <<NPC_CN_NAME>> | 194 | 宏 | 报「未定义宏」，整段内容不渲染 |
+| <<NPC_CN_TYPE>> | 58 | 宏 | 同上 |
+| <<BODYPARTS_CN_NAME>> | 7 | 宏 | 同上 |
+| setup.NPC_CN_TYPE() | — | 函数 | is not a function |
+| setup.NPC_CN_TITLE() | — | 函数 | 同上 |
+
+典型受害者：
+
+`
+pN=Eden Hunt Snake Finish
+t='<<tearful>>你从<<print setup.NPC_CN_TYPE()>>的嘴里爬了出来。'
+
+pN=Gwylan Ritual Bait Cleanse Plant
+t='...<<His>>的<<BODYPARTS_CN_NAME .taintedArm>>又细...'
+`
+
+### 修法
+
+Npc Name CN 1.1.0：把这 5 个全部补齐。
+
+- **宏**：用 SugarCube.macros.add 注册 NPC_CN_NAME / NPC_CN_TYPE / NPC_CN_TITLE / BODYPARTS_CN_NAME
+- **函数**：挂到 SugarCube.setup 上
+- **映射表**：32 个 NPC 名、40 个头衔/兽类、30 个身体部位
+
+**关键设计：只做显示层映射，不倒灌游戏数据。** 因此 <<case Bailey>> 这类靠 "Bailey" 字面量匹配的逻辑分支**完全不受影响** —— 这也是为什么不能直接把 V.NPCName[i].nam 改成中文（那会让所有 switch 分支失效）。
+
+注册用轮询 + :storyready 双保险，因为 SugarCube.setup 和 macros 在脚本加载时还没就绪。
