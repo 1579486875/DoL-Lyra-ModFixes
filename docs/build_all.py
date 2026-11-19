@@ -18,6 +18,11 @@ STEPS = [
     (r"E:\TAML\_dol\work\JD01_last_one.py", "翻译最后 1 句（Temple Forgiveness）"),
     (r"E:\TAML\_dol\work\KB01_hairtype_guard.py", "给 fringetypeCN/hairtypeCN 加 undefined 兜底"),
     (r"E:\TAML\_dol\work\LB01_fix_nested_macros.py", "修复 i18n 宏嵌套爆炸 + 补 NPC_CN_* 宏与函数定义"),
+    (r"E:\TAML\_dol\work\MF01_fix_either.py", "修复 i18n 破坏的 either() 反引号与字符串内嵌宏"),
+    (r"E:\TAML\_dol\work\MG01_fix_fullwidth_comma.py", "修复 either()/random() 里的全角逗号"),
+    (r"E:\TAML\_dol\work\MH01_last_two.py", "补齐剩余 2 处 either 反引号与 Wraith 内嵌宏"),
+    (r"E:\TAML\_dol\work\MI01_backtick.py", "给 either() 裸宏参数补反引号"),
+    (r"E:\TAML\_dol\work\MJ01_wraith.py", "修 Wraith 的字符串内嵌 <<= _line2>>"),
 ]
 
 for path, desc in STEPS:
