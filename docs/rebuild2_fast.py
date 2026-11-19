@@ -14,6 +14,16 @@ NO_DEFLATE = (
     ".mp4", ".webm", ".mkv",
 )
 
+# passage 明文安全阀：index 必须是明文形态
+import re as _re
+_html_probe = open(NEWHTML, "rb").read().decode("utf-8", "replace")
+_n_raw = len(_re.findall(r"<tw-passagedata", _html_probe))
+_n_esc = len(_re.findall(r"&lt;tw-passagedata", _html_probe))
+print("passage 明文 %d / 转义 %d" % (_n_raw, _n_esc))
+if _n_raw < 10000:
+    print("❌ index 不是明文形态（明文 %d），拒绝打包" % _n_raw)
+    import sys as _sys; _sys.exit(1)
+
 html = open(NEWHTML, "rb").read()
 print("new html:", len(html))
 
