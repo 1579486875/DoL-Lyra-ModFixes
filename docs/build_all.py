@@ -1,16 +1,17 @@
-import subprocess, sys, os
+import subprocess, sys
 
 STEPS = [
     (r"E:\TAML\_dol\work\inject6.py", "重建 index（模组数组）"),
-    (r"E:\TAML\_dol\work\U13_inject.py", "注入 i18n Widgets variablesStatic 缺失的 163 条"),
+    (r"E:\TAML\_dol\work\U13_inject.py", "补 i18n 在 Widgets variablesStatic 漏掉的 163 条"),
+    (r"E:\TAML\_dol\work\BE_bake_i18n.py", "把 i18n 烤进 index（让 TweeReplacer 看到中文，多命中 72 条补丁）"),
+    (r"E:\TAML\_dol\work\AD_direct_patch.py", "直接注入：5 张映射表 / 关系值名 / 状态名 / 脸型键"),
 ]
 
 for path, desc in STEPS:
     print(f"\n=== {desc} ===")
     r = subprocess.run([sys.executable, path], capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
-    out = (r.stdout or "").strip().split("\n")
-    for line in out[-6:]:
+    for line in (r.stdout or "").strip().split("\n")[-8:]:
         print("  " + line)
     if r.returncode != 0:
         print("  ❌ 失败:", (r.stderr or "")[:400])
