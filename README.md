@@ -280,3 +280,76 @@ Npc Name CN 1.1.0：把这 5 个全部补齐。
 **关键设计：只做显示层映射，不倒灌游戏数据。** 因此 <<case Bailey>> 这类靠 "Bailey" 字面量匹配的逻辑分支**完全不受影响** —— 这也是为什么不能直接把 V.NPCName[i].nam 改成中文（那会让所有 switch 分支失效）。
 
 注册用轮询 + :storyready 双保险，因为 SugarCube.setup 和 macros 在脚本加载时还没就绪。
+## 第十轮（BA01–FA01，30 轮）
+
+### 一、锚点真实命中率（HTML 转义问题彻底查清）
+
+| 阶段 | 命中 | 未命中 |
+|---|---|---|
+| 静态 index（不烤 i18n） | 359 | 85 |
+| **烤入 i18n 后** | **417** | **1** |
+
+唯一的 1 条是 DomRobin | Robin Hug Cry：它的两条补丁共用同一锚点，#19 先生效把 gte 5 改成 gte 2，#47 才命中 —— 单条独立判断会误报。
+
+**根因**：TweeReplacer（补丁）先于 I18nTweeReplacer（翻译）执行，而 DoLSims / DomRobin 的作者是照**中文**写的锚点。实测反转顺序能多命中 72 条。
+
+**解法**：BE_bake_i18n.py 在构建期把 19 万条翻译烤进 index，运行时补丁看到的就是中文。
+
+### 二、又一个转义 bug：passage 名
+
+BE_bake_i18n.py 最初用 
+ame="([^"]+)" 取 passage 名，得到的是 Danube House S&amp;M，而 i18n 里的 pN 是 Danube House S&M —— **所有名字含 & 的 passage，i18n 条目被整段跳过**。
+
+修正后：英文句子 482 → 281（-42%）。
+
+### 三、i18n 完全未覆盖的 6 个 passage
+
+| passage | 英文句 |
+|---|---|
+| Pub Avery Fake Stones | 36 |
+| Pub Avery Stones 2 | 15 |
+| Pub Avery Nod Point | 11 |
+| Pub Avery Stones Give | 4 |
+| Pub Avery Nod Note | 1 |
+| Pub Avery Stones Reconsider | 1 |
+
+i18n 包基于旧版游戏，这条 Avery 酒馆线是新加的，一条都没翻。已全部手工翻译（含三种 $speech_attitude 分支）。
+
+**顺带修掉一个游戏本体 bug**：Pub Avery Fake Stones 末尾有个孤立的 */（没有配对的 /*）。
+
+### 四、英文残留测量
+
+| 判据 | 数量 |
+|---|---|
+| 宽松（含注释/代码） | 550 |
+| 排除注释后 | 340 |
+| 严格（完整句子、排除宏与 JS） | **172**（其中约一半是 JS 误报） |
+
+Forest Shop Hunt Widgets 的 308 个英文句**全部是开发者注释**（<!-- 30 个但 --> 42 个，注释结构不配对），玩家看不到，不需要翻译。
+
+剩余真英文约 50-80 句，分散在 Widgets Street / Maths Project Stim / Science Refusal / Sea / Temple Quarters Hole 等 passage 的零星段落。
+
+### 五、其余维度
+
+| 维度 | 结果 |
+|---|---|
+| passage 配对 | 16088 / 16088 ✅ |
+| 重复 passage 名 | 0 ✅ |
+| JS 语法 | 76 个文件，0 错误 ✅ |
+| 存档兼容 | 169 个「疑似缺兜底」变量，均为 DoL 常见的 <<set>> 隐式初始化，非缺陷 |
+| 性能 | 解压 232.8 MB，index 100.67 MB，APK 175.20 MB |
+
+### 六、构建链（10 步，全部幂等）
+
+`
+inject6.py            重建模组数组
+U13_inject.py         补 i18n 漏掉的 163 条
+BE_bake_i18n.py       烤入 19 万条翻译（passage 名已反转义）
+AD_direct_patch.py    映射表 / 关系值名 / 状态名 / 脸型键
+CB01_link_fix_direct  10 处宏闭合（负向断言防叠层）
+CC01_return_fix.py    按 passage 精确补闭合
+DB02_translate.py     Pub Avery 剧情翻译
+DB03_fake_stones.py   Fake Stones 翻译 + 移除多余 */
+`
+
+跑两遍结果完全一致，已验证。
