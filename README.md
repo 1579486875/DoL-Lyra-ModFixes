@@ -13,7 +13,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
 | 模组数 | 58（其中 17 个为本次新建补丁模组） |
-| APK | 183,711,178 字节（175.20 MB），SHA256 `747BB4BEB1A2565860A97DE6C8702E5A98D12BB2433707CB29B32F7ED5BB0819`，已重签名（keystore `dol.jks`，alias `dol`） |
+| APK | 183,711,178 字节（175.20 MB），SHA256 `5D1EC3A9003A80DB1689F0A2552329490DBEB9BC34588C90DDACF81BC3A247DE`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -415,3 +415,76 @@ widget 名     0 个含非 ASCII
 faceVariant   6 键（撤销了上一轮误加的 17 个）
 宏配对        link 38845/38845
 ```
+
+## 第十二轮（补齐英文残留：40 -> 0）
+
+上一轮停在「约 50-80 句英文没做完」，本轮把它做完了。
+
+### 做法：把「代码碎片」和「真剧情」彻底分开
+
+第一版扫描出 550 句，几乎全是误报。逐步收紧判据：
+
+| 判据 | 数量 |
+|---|---|
+| 宽松（含注释/代码） | 550 |
+| 排除注释 | 340 |
+| 排除系统页 + 完整句子 | 157 |
+| **高置信度（排除 `$变量`/`_变量`/`isnot`/JS 关键字，要求首词大写 + ≥3 个功能词）** | **40** |
+
+### 翻译结果
+
+| 阶段 | 剩余英文剧情 |
+|---|---|
+| 起点 | 40 |
+| 批量翻译 37 句 | 3 |
+| 处理被 `<span>` 拆开的 2 句 | 1 |
+| 翻译最后 1 句 | **0**（只剩 1 条 SugarCube 框架错误信息，不翻译） |
+
+**最终剩下的唯一英文**：
+```
+Expected a second parameter, but none was provided.
+```
+这是 SugarCube 引擎自己的报错文案，翻了反而影响排错。
+
+### 本轮翻掉的代表性句子
+
+```
+The nurse helps you sit and calls out for assistance.
+  -> 护士扶你坐起，并大声呼救。
+
+There's a small cake sat on the windowsill with a note attached.
+  -> 窗台上放着一个小蛋糕，上面附着一张纸条。
+
+You dress yourself with shaking fingers, doing your best to ignore
+the disappointed heckling from the class.
+  -> 你用发抖的手指穿好衣服，尽量不去理会班上失望的起哄声。
+
+It's a brass statuette, moulded in the shape of an eagle.
+  -> 那是一尊黄铜小雕像，铸成了鹰的形状。
+```
+
+### 两个技术细节
+
+**1. 句子被 HTML 标签拆开**
+
+```
+<span class="gold">It's a brass statuette,</span> moulded in the shape of an eagle.
+You feel a <span @class="basicJitterCss()">strange heat</span> just beneath your skin.
+```
+
+整句替换找不到，必须按片段译，且要同时兼容 HTML 转义形态（`&lt;span`）。
+
+**2. 撇号会被转义**
+
+`That's a lot of money...` 在文件里可能是 `That&#39;s`，替换时两种都要试。
+
+### 回归验证（改动后重跑基线对比）
+
+| 维度 | vanilla | modded | 结论 |
+|---|---|---|---|
+| passage 集合 | 16087 | 16087 | 一致 |
+| widget 定义 | 5097 | 5097 | 无丢失 |
+| `if` 配对 | 69960/69960 | 70021/70021 | 平衡 |
+| `for` 配对 | 1049/1049 | 1053/1053 | 平衡 |
+| `switch` 配对 | 3527/3527 | 3553/3553 | 平衡 |
+| `link` 配对 | 38846/38846 | 38845/38845 | 平衡 |
