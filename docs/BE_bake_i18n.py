@@ -31,6 +31,32 @@ total_ok = 0
 total_skip = 0
 changed_passages = 0
 
+
+def _is_code_like(text):
+    """只挡真正会改坏代码的条目。
+
+    不挡的情况（这些必须翻译）：
+      - 含 <<set / <<link / <<if 等正常宏
+      - 含 => 的箭头函数（如 _parasiteTypes.map(type => ...)）
+      - 普通单词（eels / pain / affection）
+
+    挡的情况：
+      - 出现 widget / macro 定义关键字（名字不能变）
+      - 整条 f 是纯标识符（^[A-Za-z_][A-Za-z0-9_]*$）且不超过 40 字符
+        —— 这一定是变量名或 widget 名，翻了就坏
+    """
+    if not text:
+        return False
+    # 1) 宏/widget 定义关键字
+    for kw in ("<<widget", "<<macro", "Macro.add"):
+        if kw in text:
+            return True
+    # 2) f 整体是纯标识符（无空格、无标点）
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", text) and len(text) <= 40:
+        return True
+    return False
+
+
 def fix_block(m):
     global total_ok, total_skip, changed_passages
     open_tag, pname, body_esc, close_tag = m.group(1), m.group(2), m.group(3), m.group(4)
@@ -46,6 +72,10 @@ def fix_block(m):
     for it in sorted(lst, key=lambda x: x.get("pos") or 0, reverse=True):
         f, t = it.get("f"), it.get("t")
         if not f or t is None:
+            continue
+        # === 安全检查：绝不翻译代码/标识符 ===
+        if _is_code_like(f) or _is_code_like(t):
+            total_skip += 1
             continue
         pos = it.get("pos", -1)
         if 0 <= pos <= len(body) and body[pos:pos + len(f)] == f:
