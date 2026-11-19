@@ -34,6 +34,7 @@ STEPS = [
     (r"E:\TAML\_dol\work\QO02_widget_cleanup.py", "兜底：修复被翻译破坏的 widget 名"),
     (r"E:\TAML\_dol\work\ADM01_fix_flight.py", "修 flight_text 被翻成 flesh_text"),
     (r"E:\TAML\_dol\work\ADQ01_fix6.py", "修 6 个调用但不存在的宏（printNobody 等）"),
+    (r"E:\TAML\_dol\work\ADW01_fix_compound.py", "修 compoundWraith 被误改成 compound"),
     (r"E:\TAML\_dol\work\SF01_missing_symbols.py", "补 setup.description_CN + wTimerProgress"),
     (r"E:\TAML\_dol\work\SI01_ui_cn.py", "修 Genitals/Makeup/a light/You have/寄生虫名"),
     (r"E:\TAML\_dol\work\SL01_fix_cache.py", "去掉 NPC_CN_* 的表缓存 + a light/You have"),

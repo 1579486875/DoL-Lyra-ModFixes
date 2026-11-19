@@ -1917,3 +1917,68 @@ regress.py    失败 1（已验证合法的 either() 字符串内容）
 modded 独有缺失宏  0 种
 APK 175.59 MB / 归档 94 个
 ```
+
+## 第三十轮（变量名对比：抓出 compoundWraith 误改）
+
+### 一、`$compoundWraith` 被我之前误改成 `$compound`
+
+`Widgets variablesVersionUpdate` 是**旧存档迁移逻辑**：
+
+```do
+vanilla: <<if $compoundWraith>><<set $compound.wraith to $compoundWraith>><</if>>
+误改后 : <<if $compound>><<set $compound.wraith to $compound>><</if>>
+```
+
+**后果**：`<<if $compound>>` 检查的是**新变量**（永远为真），
+然后 `<<set $compound.wraith to $compound>>` **把整个 compound 对象赋给自己的子属性** ——
+**自引用 + 数据错乱**。老存档升级时幽灵据点状态会坏。
+
+**已修**：恢复 `$compoundWraith`。
+
+### 二、变量名全量对比的方法与陷阱
+
+对比 modded(4816) / vanilla(4810) 的 `$变量名`，发现 **10 种 modded 独有 / 4 种 vanilla 独有**。
+
+**但这里有三个陷阱，必须记下**：
+
+| 陷阱 | 表现 | 正确做法 |
+|---|---|---|
+| **正则吞中文** | `$_ly和<<...>>` 被当成一个变量名 `$_ly和` | 变量名用 `[A-Za-z_][A-Za-z0-9_]*`，**不要用 `\w`** |
+| **剥离 `<script>` 会漏** | `$pubnpc` 被误报「modded 没有」 | **用 `\$name\b` 直接全文搜确认**，不要只信剥离后的结果 |
+| **翻译后内容变短** | `$avery_state` 被误报「modded 丢失」 | **按 passage 定位后逐段对比**，长度差是中文更短，不是内容丢失 |
+
+**modded 独有的 8 个变量都是 i18n 加的「中文版本变量」**（`$hawk_lootCN` / `$description_CN` /
+`$selectedtfpartCN` / `$instrument_cn` / `$_desc_CN` / `$hairtypeCN` / `$fringetypeCN` /
+`$hairdressersHairColour_CN`）—— **正常，不是 bug**。
+
+### 三、`$morethan1baby` 的省略是合理的
+
+```do
+vanilla: <<if $morethan1baby>>names<<else>>name<</if>>
+modded : 对你取的名字赞许地点头
+```
+
+**中文没有单复数**，i18n 把整个 `<<if>>` 删掉是正确的本地化处理 —— **不是 bug**。
+
+### 四、当前状态
+
+```
+validate.py   21 / 21 通过
+modded 独有缺失宏  0 种
+APK 175.59 MB / 归档 95 个
+SHA256 08DABD9E0E986E946A12178E7A42D3A42595797E5E740B050C2CD3A754D1EC3F
+```
+
+### 五、这 30 轮累计修的 bug（按严重度）
+
+| # | bug | 影响面 |
+|---|---|---|
+| 1 | `<<script>>` 守卫用 `SugarCube.setup`（恒 undefined） | **10 个 setup 函数全失效** |
+| 2 | `_DESC` 表缺逗号 | **整个 script 语法错误** |
+| 3 | `NPC_CN_*` 被模组覆盖 | 所有野兽名不翻译 |
+| 4 | `<<printNobody>>`（i18n 把 Nobody 当宏） | **86 处红字** |
+| 5 | `Widgets Wraith` 注册中断 | 16 个 widget 不存在 |
+| 6 | `flight_text` → `flesh_text` | **24 处飞行场景** |
+| 7 | `QUANTIFIER_OF_FOODS_CN` / `UPDATE_CLOTH_CN` / `temple_rank` 未实现 | 13 处 |
+| 8 | `pcpet-name` / `plural-ize` 连字符 | 2 处 |
+| 9 | `$compoundWraith` → `$compound` | 旧存档迁移数据错乱 |
