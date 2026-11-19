@@ -17,6 +17,7 @@ STEPS = [
     (r"E:\TAML\_dol\work\JC01_split_sentences.py", "翻译被 HTML 标签拆开的 2 句"),
     (r"E:\TAML\_dol\work\JD01_last_one.py", "翻译最后 1 句（Temple Forgiveness）"),
     (r"E:\TAML\_dol\work\KB01_hairtype_guard.py", "给 fringetypeCN/hairtypeCN 加 undefined 兜底"),
+    (r"E:\TAML\_dol\work\LB01_fix_nested_macros.py", "修复 i18n 宏嵌套爆炸 + 补 NPC_CN_* 宏与函数定义"),
 ]
 
 for path, desc in STEPS:

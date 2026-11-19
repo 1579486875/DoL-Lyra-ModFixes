@@ -574,3 +574,77 @@ GIF 189 个 **0 损坏**；PNG 抽样 200 个 **0 损坏**。
 正确写法是 `r'<<if'`。本轮 `KI01` 因此误报 `Estate Cards Cheating Plead` 0/5。
 
 > 结论：宏配对以 `KH01`（逐 passage + 去注释）为准，其余统计脚本只作参考。
+
+## 第十四轮（紧急修复：宏嵌套爆炸 + NPC_CN_* 缺失）
+
+真机反馈三个报错，全部定位到根因并修复。
+
+### 报错一：`<<if>>: Unexpected token '<<'`（致命）
+
+```
+0.5.12.13 出错 (:: Bedroom): <<if>>: bad conditional expression in <<if>> clause:
+SyntaxError: Unexpected token '<<'
+stack: overlayReplace -> social -> relation-box
+```
+
+**根因**：`relation-box` 里出现了
+
+```do
+<<if (<<NPC_CN_NAME <<NPC_CN_NAME <<NPC_CN_NAME _npcData.nam>>>>>> is ("Ivory Wraith") or ...)
+```
+
+i18n 的 `t` 把 `_npcData.nam` 换成 `<<NPC_CN_NAME _npcData.nam>>`，
+而 `BE_bake_i18n` 对同一段**反复应用**，每次都在已替换的文本上再套一层。
+套到第三层后，`<<if>>`（纯 JS 表达式）里出现了 `<<` → 解析崩溃。
+
+**后果**：`relation-box` 挂 → `social` 挂 → 侧边栏社交面板整块空白。
+
+**修法**：精确折叠回 `<<if (_npcData.nam is ("Ivory Wraith") or ...)>>`。
+全库只有这 1 处。
+
+### 报错二：`macro <<NPC_CN_NAME>> does not exist`
+
+```
+0.5.12.13 出错 (:: Bedroom): macro <<NPC_CN_NAME>> does not exist
+stack: extraStatistics
+（刷屏 30+ 条）
+```
+
+**根因**：`NPC_CN_NAME` / `NPC_CN_TYPE` / `BODYPARTS_CN_NAME` 三个宏
+和 `setup.NPC_CN_*` 四个函数，**在 index 里一个定义都没有**。
+它们按理应由 `NpcNameCN` 模组的 JS 注册，但实际没生效。
+
+**修法**：直接在 `index.html` 里定义，不再依赖模组：
+
+```do
+<<widget "NPC_CN_NAME">><<= (setup.NPC_CN_NAME ? setup.NPC_CN_NAME(_args[0]) : _args[0])>><</widget>>
+<<widget "NPC_CN_TYPE">><<= (setup.NPC_CN_TYPE ? setup.NPC_CN_TYPE(_args[0]) : _args[0])>><</widget>>
+<<widget "BODYPARTS_CN_NAME">><<= (setup.BODYPARTS_CN_NAME ? setup.BODYPARTS_CN_NAME(_args[0]) : _args[0])>><</widget>>
+```
+
+配套的四个 `setup.*` 函数内置了映射表：
+- `NPC_CN_TYPE` / `NPC_CN_TITLE` 读 `setup.NPCTypeList_cn_name`
+- `NPC_CN_NAME` 读 `setup.NPCNameList_cn_name`
+- `BODYPARTS_CN_NAME` 用内置的 45 条身体部位表
+
+**关键设计**：函数**只 return，绝不给入参赋值**。
+旧版 `CombatSkills` 的 shim 就是在这一步污染了 `_parasiteTypes`，
+导致整列寄生虫显示成 `Undefinedeelsundefined`。
+
+### 报错三：`面部风格: undefined` / `举止: Makeup | ...`
+
+查证结果：`setup.faceStyleOptions` = `{"传统": "default"}`，
+`setup.faceVariantOptions` = `{"default": {6 个中文键}}` —— **数据都是对的**。
+截图里的 `Makeup` 是旧包（`776BE5F8`）的残留，全库 `Makeup` 的出现
+全部是 JS/CSS 标识符（`MakeupOptions` / `defaultMakeup` / `.makeupList`），
+**没有一处是 UI 文本**。
+
+### 本轮校验
+
+```
+NPC_CN_NAME 宏        1
+NPC_CN_TYPE 宏        1
+BODYPARTS_CN_NAME 宏  1
+嵌套残留              0
+faceVariantOptions    6 键（正确）
+```
