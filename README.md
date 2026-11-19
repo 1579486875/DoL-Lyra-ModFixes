@@ -12,8 +12,8 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | 游戏 | DoL 0.5.12.13 + ModI18N 1.0.1a |
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
-| 模组数 | 57（其中 16 个为本次新建补丁模组） |
-| APK | 182,371,786 字节（173.92 MB），SHA256 `934AE30A5C441445AEA565F6F01ABDFF230A393BFAC92FA8C881200BE2AEFF1E`，已重签名（keystore `dol.jks`，alias `dol`） |
+| 模组数 | 58（其中 17 个为本次新建补丁模组） |
+| APK | 182,375,882 字节（173.93 MB），SHA256 `8D6FD796B3C8B0D3331880A44216438986959FC9107E916A8337CEA609B9221E`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -188,3 +188,48 @@ imgFileList:     img/face/default/foxy/makeup/eyeshadows.png      ← 多了 img
 ### 为什么不动 modded1～15
 
 那 15 套是模组添加的（modded1 有 77 个文件，modded2-9 各 69 个，modded10-15 各 43 个）。它们是作者按需精简的，补齐等于替别人改设计。用户提到的「仪态」指游戏自带的 6 种，所以只补 foxy/gloomy/makeup。
+## 第八轮（W01–W10）：犯罪名中文化
+
+作弊菜单 / 统计页的犯罪项显示英文（Assault、Coercion、Trespassing…）。
+
+### 根因
+
+游戏在 Widgets variablesStatic 里定义：
+
+`
+<<set setup.crimeNames to {
+	assault: "assault",
+	coercion: "coercion",
+	destruction: "destruction of property",
+	...
+}>>
+`
+
+作弊菜单直接输出它的**值**：
+
+`
+<<numberStepper toTitleCase(setup.crimeNames[_cr]) [_cr].current ...>>
+`
+
+而 i18n 对这块**一条都没翻**（Coercion / Trespassing / Thievery 等在 190,234 条里查无对应条目）。
+
+### 修法
+
+Crime Name CN 1.0.0：**只改值、不动键**。
+
+键（ssault / coercion …）是 $crime[_cr] 的索引，也被 $crime[_cr].current/history/daily/count 使用 —— 改键会让**老存档的犯罪记录全部失效**。值只用于 	oTitleCase(...) 显示，改它零风险。
+
+| 键 | 原值 | 新值 |
+|---|---|---|
+| assault | assault | 袭击 |
+| coercion | coercion | 胁迫 |
+| destruction | destruction of property | 破坏财产 |
+| exposure | indecent exposure | 不当暴露 |
+| obstruction | obstruction of justice | 妨碍司法 |
+| prostitution | prostitution | 卖淫 |
+| resisting | resisting arrest | 拒捕 |
+| thievery | thievery | 盗窃 |
+| petty | petty thievery | 轻微盗窃 |
+| trespassing | trespassing | 非法闯入 |
+
+顺带补了 setup.crimeDescs（犯罪事件描述）7 条：general / escaping prison / a high-profile theft involving a noble's wedding cake 等，其中包括 debug: "wearing clothes of mixed fabrics, you sick fuck" 这条作者的玩笑条目。
