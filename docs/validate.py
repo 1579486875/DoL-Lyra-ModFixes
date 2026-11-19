@@ -177,8 +177,12 @@ def main():
         vp = set(html.unescape(m.group(1)) for m in
                  re.finditer(r'<tw-passagedata[^>]*name="([^"]+)"', vraw))
         mp = set(passages.keys())
-        check(f"passage 集合一致（{len(mp)} / {len(vp)}）", mp == vp,
-              f"多出 {len(mp-vp)}，缺少 {len(vp-mp)}")
+        # 允许我们新增的修复 passage
+        ALLOW_EXTRA = {"Widgets Repair"}
+        extra = mp - vp - ALLOW_EXTRA
+        lack = vp - mp
+        check(f"passage 集合一致（{len(mp)} / {len(vp)}）", not extra and not lack,
+              f"多出 {len(extra)} {sorted(extra)[:3]}，缺少 {len(lack)} {sorted(lack)[:3]}")
     else:
         check("passage 集合一致", False, "vanilla 包不存在，跳过")
 
@@ -210,6 +214,23 @@ def main():
         if re.search(r"[\u4e00-\u9fff]", base):
             attr_cn.append((m.group(1), expr[:60]))
     check("属性表达式无裸中文", not attr_cn, str(attr_cn[:3]))
+
+    print("\n" + "=" * 90)
+    print("9d) <<script>> 里误用 SugarCube.xxx 访问注入对象")
+    print("=" * 90)
+    # SugarCube 注入的全局对象是裸的：setup / State / T / C / V / variables / engine
+    INJECTED = ["setup", "State", "T", "C", "V", "variables", "engine", "Story"]
+    misuse = []
+    for m in re.finditer(r"<<script>>(.*?)<</script>>", g, re.S):
+        src = m.group(1)
+        if not src.strip().startswith("(function"):
+            continue
+        for obj in INJECTED:
+            # 允许 window.SugarCube.xxx 作为 fallback，但不允许裸 SugarCube.xxx 作为主路径
+            for mm in re.finditer(r"(?<!window\.)SugarCube\." + obj + r"\b", src):
+                misuse.append((obj, src[max(0, mm.start() - 40):mm.start() + 60]))
+    check("<<script>> 无 SugarCube.xxx 误用", not misuse,
+          str(misuse[:3]))
 
     print("\n" + "=" * 90)
     print("10) 文件体积")

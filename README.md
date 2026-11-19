@@ -1730,3 +1730,105 @@ if (!st) return;
 
 **以后写 `<<script>>` 必须遵守**：不要在 script 里用 `SugarCube.xxx` 判断，
 SugarCube 注入的全局对象直接裸用（`setup` / `State` / `variables` / `T` / `C`）。
+
+## 第二十八轮（真浏览器自动化测试 + 3 个根因修复）
+
+用户授权我用一切手段排查。这轮我**真的把游戏跑起来了**——用 Edge headless + CDP 协议，
+在 Node 里驱动真浏览器加载 100MB 的 index.html，捕获所有运行时错误。
+
+### 一、建立真机级自动化测试
+
+新增 4 个测试器（都不需要安装任何 npm 包，Node 24 原生 fetch + WebSocket）：
+
+| 文件 | 作用 |
+|---|---|
+| `cdp_test.js` | 加载 index，捕获所有 console/异常，探测 setup 状态 |
+| `cdp_probe.js` | 轮询等待就绪，执行任意探针表达式 |
+| `cdp_apk_test.js` | 从 APK 提取 index + 起 HTTP + 测试 + 错误分组统计 |
+| `cdp_passages.js` | 遍历关键 passage，收集各自的错误 |
+
+**关键发现**：`file://` 协议下 ModLoader 的 `fetch` 会被拦（`TypeError: Failed to fetch`），
+游戏卡在 Loading。**必须用 HTTP 服务器**才能测。
+
+### 二、修的 3 个根因
+
+#### 根因 1：`<<script>>` 守卫用了不存在的 `SugarCube.setup`
+
+（见上一轮，已修）
+
+#### 根因 2：`_DESC` 表缺逗号 → 整个 `<<script>>` 语法错误
+
+`ABC01` 插入描述词时，前一项缺逗号：
+
+```javascript
+"teacher": "教师"        // ← 缺逗号
+"petite": "娇小",
+```
+
+`SyntaxError: Unexpected string` → **整个 `<<script>>` 崩** → 所有 setup 函数失效。
+
+**Node 真实执行测试直接抓到了这个错误。**
+
+#### 根因 3：`NPC_CN_*` 被模组覆盖（最隐蔽）
+
+`setup.NPC_CN_TYPE` 是模组（NpcNameCN）提供的，它内部用闭包里的 `TITLES` 表，
+**只含职业/身份词，没有野兽名**（`lizard`/`eels`/`whale` 全返回英文）。
+
+而模组**在 `storyready` 之后覆盖我的实现**。
+
+**解法**：用 `Object.defineProperty` 的 getter/setter 锁定：
+
+```javascript
+Object.defineProperty(st, name, {
+    configurable: true,
+    get: function () { return HOLDER[name].fn; },   // 我的包装函数
+    set: function (v) {                             // 模组覆盖时
+        HOLDER[name].orig = v;                      // 只更新内部 orig
+        HOLDER[name].fn = makeFn(name);             // 重建但保留兜底
+    }
+});
+```
+
+**效果**：模组的表优先（`human→人类`），翻不出来的用我的补充表（`lizard→蜥蜴`）。
+
+**实测全部通过**：`lizard→蜥蜴`、`whale→鲸鱼`、`eels→鳗鱼`、`human→人类`、
+`slime→史莱姆`、`spider→蜘蛛`、`wolf→狼`、`tall→高挑`、`lanky→瘦长`。
+
+### 三、修的 Wraith widget 注册失败（用户报的 `rngWraith does not exist`）
+
+**对比确认是 modded 独有**：
+
+| widget | vanilla | modded（修前） |
+|---|---|---|
+| `rngWraith` | OK | **MISSING** |
+| `wHunt` | OK | **MISSING** |
+| `speechWraith` | OK | **ERRORS** |
+
+**根因未查明**：`Widgets Wraith` 结构完全正常（if/for/switch 全配对、
+widget 35/35、无嵌套、宏数量差异仅为 `wTimerProgress` 被移走），
+但注册在第 13-20 个 widget 之后中断。
+
+**解法**：新建 `Widgets Repair` passage（tag=widget），
+把 16 个注册失败的 widget 定义**复制**过去（不动原定义，重复定义报
+`already exists` 但能注册）。
+
+**结果**：`rngWraith`/`wHunt`/`wPersist`/`wraithIntro`/`wraith_pass`/
+`wraithPossess`/`wraithExorcise`/`gobsession`/`lobsession`/`possessedWord` **全部 OK**。
+
+### 四、查证后**不是** bug 的
+
+| 现象 | 结论 |
+|---|---|
+| `randomInt called with invalid parameters` | **vanilla 也有**（原版特效初始化问题） |
+| `drawImage` TypeError | **测试环境**（没提取图片） |
+| `tryReplaceStringFuzzyWithHint cannot find` ×31814 | **ModI18N 正常行为**（遍历 19 万条 i18n 条目，找不到就 log） |
+| `img/face/masks/left.png` 加载失败 | **APK 里有**，测试环境问题 |
+| `_speechWraith` 的 `"\\"` | **实测正常**（`你_speak。\X`） |
+
+### 五、测试基础设施的教训
+
+1. **`file://` 不能测 ModLoader** —— 必须 HTTP
+2. **CDP 的 `Runtime.evaluate` 超时 30 秒**，大量 DOM 操作会超时
+3. **`Engine.play` 同步调用会栈溢出** —— 要异步
+4. **PowerShell here-string 会破坏 JS 表达式** —— 写成文件传 `@file`
+5. **`Macro`/`Story`/`Engine` 不全局**，在 `window.SugarCube` 里

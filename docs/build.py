@@ -50,7 +50,7 @@ def main():
 
     # 2) 打包
     os.environ["NEWHTML"] = os.path.join(W, "index_modded6.html")
-    run([sys.executable, os.path.join(W, "rebuild2.py")], "2/6 打包 APK")
+    run([sys.executable, os.path.join(W, "rebuild2_fast.py")], "2/6 打包 APK（图片 STORED 加速）")
 
     # 3) 补丁
     run([sys.executable, os.path.join(W, "apply_all_patches.py")], "3/6 应用补丁")
@@ -108,6 +108,21 @@ def main():
         print("\n⚠️ 守门员报告问题（见上），请人工确认后再分发")
     else:
         print("\n✅ 守门员全部通过")
+
+    # 8) 真实执行验证（失败阻止分发）
+    print("\n[8/8 真实执行验证 exec_verify.py]", flush=True)
+    vr = subprocess.run([sys.executable, os.path.join(W, "exec_verify.py")],
+                        cwd=W, capture_output=True, text=True,
+                        encoding="utf-8", errors="replace")
+    for line in (vr.stdout or "").strip().split("\n")[-14:]:
+        print("  " + line)
+    if vr.returncode != 0:
+        print("\n" + "!" * 70)
+        print("❌ 真实执行验证失败 —— 生成的 APK 不可分发")
+        print("   上面列出的 setup 函数没有真的挂载，游戏里会报 'is not a function'")
+        print("!" * 70)
+        sys.exit(1)
+    print("\n✅ 真实执行验证通过（函数真的挂载了，调用返回中文）")
 
     # 汇报
     final = os.path.join(OUT, "DoL-Lyra-0.5.12.13-CHS-modded.apk")
