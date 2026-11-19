@@ -29,6 +29,10 @@ STEPS = [
     (r"E:\TAML\_dol\work\PE01_status_cn.py", "直接替换 widget 里硬编码的英文状态名"),
     (r"E:\TAML\_dol\work\PK01_headers_cn.py", "替换 settingsHeader 里的英文标题"),
     (r"E:\TAML\_dol\work\QO02_widget_cleanup.py", "兜底：修复被翻译破坏的 widget 名"),
+    (r"E:\TAML\_dol\work\SF01_missing_symbols.py", "补 setup.description_CN + wTimerProgress"),
+    (r"E:\TAML\_dol\work\SI01_ui_cn.py", "修 Genitals/Makeup/a light/You have/寄生虫名"),
+    (r"E:\TAML\_dol\work\SL01_fix_cache.py", "去掉 NPC_CN_* 的表缓存 + a light/You have"),
+    (r"E:\TAML\_dol\work\SO01_js_templates.py", "替换 JS 运行时拼接的英文模板"),
 ]
 
 for path, desc in STEPS:
