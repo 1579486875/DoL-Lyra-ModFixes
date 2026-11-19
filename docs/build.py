@@ -24,7 +24,7 @@ W = r"E:\TAML\_dol\work"
 OUT = r"E:\TAML\_dol\out"
 ARCHIVE = r"E:\TAML\_dol\archive"
 SIGNER = os.path.join(W, "uber-apk-signer.jar")
-KEYSTORE = os.path.join(W, "dol.jks")
+KEYSTORE = os.path.join(W, "dol_sha256.jks")   # SHA256withRSA（旧 dol.jks 是 SHA384，HarmonyOS 拒装）
 
 
 def run(cmd, desc, cwd=None):
@@ -70,7 +70,7 @@ def main():
         for info in z.infolist():
             data = iris if info.filename in REP else z.read(info.filename)
             zi = zipfile.ZipInfo(info.filename, date_time=info.date_time)
-            zi.compress_type = info.compress_type
+            zi.compress_type = zipfile.ZIP_STORED if info.filename in ('resources.arsc',) else info.compress_type  # resources.arsc 必须 STORED
             zi.external_attr = info.external_attr
             zo.writestr(zi, data)
     z.close()

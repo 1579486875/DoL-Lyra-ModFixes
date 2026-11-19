@@ -239,6 +239,18 @@ def main():
     ok_size = 150 <= size_mb <= 250
     check(f"APK 体积 {size_mb:.2f} MB（合理区间 150-250）", ok_size)
 
+    # --- resources.arsc 必须是 STORED ---
+    try:
+        import zipfile as _zf
+        _z = _zf.ZipFile(APK)
+        _i = _z.getinfo("resources.arsc")
+        ok = (_i.compress_type == _zf.ZIP_STORED)
+        check("resources.arsc 未压缩（Android 硬性要求）", ok,
+              f"compress_type={_i.compress_type}（0=STORED, 8=DEFLATE）")
+        _z.close()
+    except Exception as _e:
+        check("resources.arsc 未压缩", False, str(_e))
+
     # 汇总
     print("\n" + "=" * 90)
     failed = [r for r in results if not r[1]]
