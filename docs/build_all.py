@@ -44,6 +44,9 @@ STEPS = [
     (r"E:\TAML\_dol\work\XC01_collapse.py", "折叠多层宏嵌套（每次烤入都会多包一层）"),
     (r"E:\TAML\_dol\work\ZE01_fix_css_cn.py", "修 CSS 类名/变量名被翻译破坏"),
     (r"E:\TAML\_dol\work\ZO01_cn_macro_fix.py", "修中文宏名（<<保持了安静>> -> <<silently>>）"),
+    (r"E:\TAML\_dol\work\AAD01_fix_setup_guard.py", "修 setup 守卫（SugarCube.setup 不存在）"),
+    (r"E:\TAML\_dol\work\AAE01_fix_selfassign.py", "删掉 var st = st 自赋值"),
+    (r"E:\TAML\_dol\work\AAH01_fix_all.py", "折叠 <<= 嵌套 + 修全角括号 + 英文单词"),
     (r"E:\TAML\_dol\work\ZJ02_fix_babyrent.py", "补 babyRentDisplay 丢失的颜色参数"),
     (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套（必须最后）"),
 ]
