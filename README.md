@@ -1832,3 +1832,88 @@ widget 35/35、无嵌套、宏数量差异仅为 `wTimerProgress` 被移走）�
 3. **`Engine.play` 同步调用会栈溢出** —— 要异步
 4. **PowerShell here-string 会破坏 JS 表达式** —— 写成文件传 `@file`
 5. **`Macro`/`Story`/`Engine` 不全局**，在 `window.SugarCube` 里
+
+## 第二十九轮（继续深挖：又抓到 7 个真 bug）
+
+### 一、`flight_text` 被翻成 `flesh_text`（24 处飞行场景全挂）
+
+对比所有 widget 名，发现：
+
+```
+vanilla 有: flight_text
+modded  有: flesh_text      ← 多了这个，少了上面那个
+```
+
+**`flight` 被翻成了 `flesh`**（都是 f 开头），`flight_text` 有 **24 处调用**
+（Bog 滑翔、触手平原、鸟塔），全部变成 `<<flesh_text>>` → **宏不存在**。
+
+**更糟的是**：我之前的 `QO02_widget_cleanup.py` 兜底脚本把它**固化成了 `flesh_text`**
+（以为 `f浅色_text → flesh_text` 是对的）。
+
+**已修**：`flesh_text` → `flight_text`，并修正 `QO02` 的映射表。
+
+### 二、`<<printNobody>>` 被当成宏（86 处）
+
+```do
+vanilla: <<if isGwylanAbsent() is "nobody">><span class="red">Nobody</span><</if>>
+modded : <<if isGwylanAbsent() is "nobody">><span class="red"><<printNobody>></span><</if>>
+```
+
+**i18n 把单词 `Nobody` 替换成了 `<<printNobody>>`** —— 86 处，全部报
+`macro <<printNobody>> does not exist`。**格威岚所有状态描述都会红字**。
+
+**已修**：`<<printNobody>>` → `无人`。
+
+### 三、剩下 5 个「调用了但不存在」的宏
+
+用「已定义 vs 已调用」的全量对比，找出 modded 独有的 6 种：
+
+| 宏 | 调用次数 | 问题 | 修法 |
+|---|---|---|---|
+| `printNobody` | **86** | i18n 把 `Nobody` 当宏 | → `无人` |
+| `QUANTIFIER_OF_FOODS_CN` | 7 | i18n 加的，没实现 | **实现 widget**（量词：份/杯/个/块/包） |
+| `UPDATE_CLOTH_CN` | 5 | 同上 | **实现 widget**（取 `cn_name_cap`） |
+| `temple_rank` | 1 | `$temple_rank` 丢了 `$` | **实现 widget**（见习者/教徒/司祭/修士/修女） |
+| `pcpet-name` | 1 | 连字符误插 | → `pcpetname`（666 处调用的正名） |
+| `plural-ize` | 1 | 同上 | → `pluralise`（189 处调用的正名） |
+
+**修完后重新扫描：modded 独有的缺失宏 = 0 种** ✅
+
+### 四、运行时验证
+
+用 CDP 在真浏览器里逐一调用：
+
+```
+flight_text:      OK（能调用）
+QUANTIFIER:       OK:杯
+UPDATE_CLOTH:     OK（shirt 非对象返回原文）
+temple_rank:      OK:信徒
+pcpetname:        OK:乖女孩
+pluralise:        OK
+rngWraith:        OK
+wHunt:            OK
+printNobody 残留: false
+「无人」已出现:    true
+```
+
+### 五、本轮方法论总结
+
+**「已定义 vs 已调用」全量对比**是这次最有效的检查：
+
+```python
+定义 = 所有 <<widget "x">> + Macro.add + DefineMacro
+调用 = 所有 <<x（排除 <script> 和注释）
+缺失 = 调用 - 定义 - SugarCube内置
+只有 modded 独有的缺失才是我们引入的
+```
+
+**这一招直接抓出 6 个宏**，其中 `printNobody` 影响 86 处。
+
+### 六、当前状态
+
+```
+validate.py   21 / 21 通过
+regress.py    失败 1（已验证合法的 either() 字符串内容）
+modded 独有缺失宏  0 种
+APK 175.59 MB / 归档 94 个
+```
