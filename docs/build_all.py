@@ -25,6 +25,7 @@ STEPS = [
     (r"E:\TAML\_dol\work\MJ01_wraith.py", "修 Wraith 的字符串内嵌 <<= _line2>>"),
     (r"E:\TAML\_dol\work\NB01_wraith_full.py", "彻底修 _speechWraith 的两处赋值（变量拼接）"),
     (r"E:\TAML\_dol\work\NC01_wraith_b1.py", "精确修 B1 的字符串"),
+    (r"E:\TAML\_dol\work\OM01_bus_fix.py", "修原版 bug: set bus 缺 to"),
 ]
 
 for path, desc in STEPS:

@@ -772,3 +772,86 @@ NPC_CN_* 三宏             全部存在
 嵌套残留                  0
 5 张映射表                全部存在
 ```
+
+## 第十七轮（43 轮 · 全新维度：JS 表达式真编译 / DOM 选择器 / widget 覆盖）
+
+前几轮查的是「结构」和「翻译」。本轮换成「实际可执行性」——用 Node 真正编译
+SugarCube 里的每个表达式，这是最硬的验证。
+
+### 一、JS 表达式真编译（1-6、31-39 轮）
+
+**方法**：把每个 `<<if>>` / `<<set>>` / `<<=>>` 的参数先用 **SugarCube → JS 转换**
+（`to`→`=`、`is`→`===`、`isnot`→`!==`、`gt/gte/lt/lte`、`and/or/not`、`def/ndef`、`eq/neq`），
+再交给 `new Function()` 编译。
+
+| 版本 | 表达式数 | 语法错误 | 错误率 |
+|---|---|---|---|
+| **modded** | **183,642** | **89** | **0.048%** |
+| vanilla（抽样 1/5） | 36,436 | 16 | 0.044% |
+
+**错误率几乎相同** → i18n 烤入没有引入系统性语法问题。
+
+剩下 89 个逐一核对，全部是**审计工具自身局限**：
+- `<<=>>` 里含 `? :` 三元，被提取逻辑截断
+- `def X and ...` 前缀形式（转换器只处理"整段就是 def X"）
+- `$'+_labelM+'` 动态变量名（SugarCube 支持的写法）
+- `console.log(...)` 里括号嵌套导致提取越界
+
+### 二、DOM 选择器（7-13 轮）
+
+| 检查项 | modded | vanilla | modded 独有 |
+|---|---|---|---|
+| `<<replace>>`/`<<append>>`/`<<prepend>>`/`<<remove>>` 选择器 | 214 种 | 214 种 | **0** |
+| 选择器找不到目标 | 3 | 3 | **0** |
+| jQuery `$('#id')` 目标未定义 | 24 | 24 | **0** |
+| 重复 `id` | 103 | 103 | **0** |
+
+重复 id 里 `#next` 出现 2944 次是 SugarCube 正常行为（每个 passage 各一个）。
+
+### 三、widget 定义（14-24 轮）
+
+| 检查项 | modded | vanilla | 结论 |
+|---|---|---|---|
+| 同名 widget 重复定义 | 3 | 3 | 一致（原版就有） |
+| widget 总数 | 5100 | 5097 | +3（我加的 `NPC_CN_*`） |
+| widget 内部再定义 widget | 0 | — | 干净 |
+| 定义在非 `Widgets*` passage | 755 | 755 | 一致 |
+| `<<include>>` 目标不存在 | 7 | 7 | 一致 |
+
+### 四、性能与风险（25-30 轮）
+
+| 指标 | 结果 |
+|---|---|
+| `<<for>>` 循环 | 1060 处，**无无限循环风险** |
+| 超大 passage | 12 个 > 200KB，全是 `Widgets *`（原版如此） |
+| `clone()` | 903 处（DoL 正常用法） |
+| `window.*` 重复赋值 | 见审计输出 |
+
+### 五、本轮修掉的 1 个原版 bug
+
+```do
+<<set $bus "avery_garage">>     ← 缺 to，SugarCube 会抛 SyntaxError
+```
+
+出现在 `Avery Valentines Missed Rage Fight Finish`，同一 passage 里另一处写的是
+`<<set $bus to "avery_bedroom">>`（正确），说明这是原版手误。
+
+**后果**：走到这条分支时 `<<avery_mansion_end_links>>` 不会执行。
+**已修**为 `<<set $bus to "avery_garage">>`。全库只有这 1 处。
+
+### 六、方法论记录：SugarCube 表达式验证的正确姿势
+
+```javascript
+function toJS(expr) {
+    // 1. 先保护字符串字面量
+    // 2. 中缀运算符：is/isnot/eq/neq/gt/gte/lt/lte/and/or/not/to
+    // 3. 前缀形式：`ndef X` -> `(X === undefined)`，`def X` -> `(X !== undefined)`
+    // 4. 还原字符串
+}
+// <<if>>     -> new Function('if (' + js + ') {}')
+// <<set>>    -> new Function(js)
+// <<=>>/print-> new Function('return (' + js + ')')
+```
+
+**直接用 `<<if $x is 1>>` 丢给 JS 会 78% 报错** —— 因为 `to`/`is` 是 SugarCube 自己的语法。
+第一次跑出 143,086 个"错误"就是这个原因，加上转换后降到 89 个。
