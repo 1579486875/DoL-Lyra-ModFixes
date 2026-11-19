@@ -1982,3 +1982,101 @@ SHA256 08DABD9E0E986E946A12178E7A42D3A42595797E5E740B050C2CD3A754D1EC3F
 | 7 | `QUANTIFIER_OF_FOODS_CN` / `UPDATE_CLOTH_CN` / `temple_rank` 未实现 | 13 处 |
 | 8 | `pcpet-name` / `plural-ize` 连字符 | 2 处 |
 | 9 | `$compoundWraith` → `$compound` | 旧存档迁移数据错乱 |
+
+## 第三十一轮（CSS class 对比：抓出 cheatsBody 存中文首字）
+
+### 一、`cheatsBody` 存的是中文首字，破坏 15+ 处 JS 判断
+
+```do
+<<set _bodyTypes to ["男性化", "女性化", "中性化"]>>
+<<set $player.gender_body to _bodyTypes[_i].charAt(0)>>   ← 存 "男"/"女"/"中"！
+```
+
+而 JS 里 `$player.gender_body` 被当作 **`"m"/"f"/"a"`** 用：
+
+```javascript
+V.player.gender_body === "m"
+V.player.gender_body !== "f"
+V.player.gender_body === "a"
+{ a: "slender", f: "curvy" }[V.player.gender_body]
+T.modeloptions.body_type = ...
+```
+
+**后果**：
+- 体型选择器**永远不会高亮**（`$player.gender_body is X ? 'goldLink' : 'unselected'` 恒 false）
+- **服装性别类型判定失效**（`clothesType` 永远落到 `else` 分支）
+- **body_type 模型映射失效**（`{a:..,f:..}[中文]` → undefined）
+- **双性化转变（bimbo/pimp）的体型自动迁移失效**
+
+**已修**：显示用中文数组，存储用独立的英文键数组：
+
+```do
+<<set _bodyTypes to ["男性化", "女性化", "中性化"]>>
+<<set _bodyKeys to ["m", "f", "a"]>>
+<span @class="$player.gender_body is _bodyKeys[_i] ? 'goldLink' : 'unselected'">
+    <<link _bodyTypes[_i]>>
+        <<set $player.gender_body to _bodyKeys[_i]>>
+```
+
+### 二、中间踩的坑：第一版修错了
+
+第一版我把 `{'男':'m','女':'f','中':'a'}` 改成 `{m:'m',f:'f',a:'a'}` ——
+**但 `charAt(0)` 返回的是中文首字，查 `{m:...}` 依然找不到**。
+**必须同时改「存什么」和「比什么」**，只改一边等于没改。
+
+### 三、254 个中文数组的排查结果
+
+modded 里有 **254 个含中文的字符串数组**，逐个看上下文后确认：
+
+| 类别 | 例子 | 结论 |
+|---|---|---|
+| 显示用映射表 | `majorAreas_cn_name` / `breastsizes` / `penisSizes` / `_altLink` | ✅ 正常 |
+| 台词池 | `"big": ["它巨大的尺寸…", …]` | ✅ 正常 |
+| **当键用** | `_bodyTypes`（已修） | ❌ 真 bug |
+| 首字母大写 | `beasts.charAt(0).toUpperCase()` | ✅ 中文首字大写还是原字，无害 |
+
+### 四、`$avery_state` 是误报
+
+`ADT01` 报「modded 丢失 `$avery_state`」，按 passage 定位后确认：
+
+- **modded 里 `$avery_state` 确实存在**
+- 段落长度 944 → 562 是**中文比英文短**，不是内容丢失
+
+**误报原因**：我的正则剥离 `<script>` 时影响了统计。
+**教训：变量名对比不能只信剥离后的结果，必须用 `\$name\b` 全文搜确认。**
+
+### 五、当前状态
+
+```
+validate.py   21 / 21 通过
+modded 独有缺失宏  0 种
+APK 175.59 MB / 归档 96 个
+SHA256 4F7B49CC7A1CCC833D4B2A970F247EC833D188B80DD985C19B20743F7529E63B
+```
+
+### 六、31 轮累计修的 bug（11 个）
+
+| # | bug | 影响面 | 发现方式 |
+|---|---|---|---|
+| 1 | `<<script>>` 守卫用 `SugarCube.setup` | 10 个 setup 函数全失效 | 用户报错 |
+| 2 | `_DESC` 表缺逗号 | 整个 script 语法错误 | **Node 真实执行** |
+| 3 | `NPC_CN_*` 被模组覆盖 | 野兽名全不翻译 | **CDP 探针** |
+| 4 | `<<printNobody>>` | 86 处红字 | **宏调用 vs 定义对比** |
+| 5 | `Widgets Wraith` 注册中断 | 16 个 widget 不存在 | **CDP 逐个试调** |
+| 6 | `flight_text` → `flesh_text` | 24 处飞行场景 | **widget 名对比** |
+| 7 | `QUANTIFIER_OF_FOODS_CN` 等 3 个未实现 | 13 处 | 同 #4 |
+| 8 | `pcpet-name` / `plural-ize` 连字符 | 2 处 | 同 #4 |
+| 9 | `$compoundWraith` → `$compound` | 旧存档迁移数据错乱 | **变量名对比** |
+| 10 | `cheatsBody` 存中文首字 | 15+ 处 JS 判断失效 | **CSS class 对比** |
+| 11 | `<<= <<=` 嵌套 / 全角括号 / `settingsHeader` 等 | UI 崩溃 | 历史轮次 |
+
+### 七、方法论沉淀（按有效性排序）
+
+1. **「定义 vs 调用」全量对比** → 抓出 6 个缺失宏（含 86 次的 `printNobody`）
+2. **CDP 真浏览器探针** → 能问游戏「这个宏在不在」「这个函数返回什么」
+3. **widget 名对比**（modded vs vanilla）→ 抓出 `flight_text`
+4. **变量名对比** → 抓出 `$compoundWraith`
+5. **CSS class 对比** → 抓出 `cheatsBody`
+6. **静态 JS 编译检查** → 抓出 `_DESC` 逗号
+
+**共同点：都是「modded 独有 / vanilla 独有」的差异检测。**
