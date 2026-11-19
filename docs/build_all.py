@@ -5,6 +5,8 @@ STEPS = [
     (r"E:\TAML\_dol\work\U13_inject.py", "补 i18n 在 Widgets variablesStatic 漏掉的 163 条"),
     (r"E:\TAML\_dol\work\BE_bake_i18n.py", "把 i18n 烤进 index（让 TweeReplacer 看到中文，多命中 72 条补丁）"),
     (r"E:\TAML\_dol\work\AD_direct_patch.py", "直接注入：5 张映射表 / 关系值名 / 状态名 / 脸型键"),
+    (r"E:\TAML\_dol\work\CB01_link_fix_direct.py", "直接注入：修复 i18n 漏掉的 10 处宏闭合"),
+    (r"E:\TAML\_dol\work\CC01_return_fix.py", "按 passage 精确补闭合（Asylum Return）"),
 ]
 
 for path, desc in STEPS:
