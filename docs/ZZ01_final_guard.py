@@ -52,6 +52,29 @@ FIXES = [
      [("<<if $compound>>\n\t\t\t<<set $compound.wraith to $compound>>\n\t\t<</if>>",
        "<<if $compoundWraith>>\n\t\t\t<<set $compound.wraith to $compoundWraith>>\n\t\t<</if>>")],
      lambda g: "<<set $compound.wraith to $compound>>" not in g),
+
+    ("8. 三重尖括号 <<</if>>",
+     [("<<</if>>", "<</if>>")],
+     lambda g: "<<</if>>" not in g),
+
+    ("9. NPC 名中文 case",
+     [('<<case "巨鹰">>', '<<case "Great Hawk">>'),
+      ('<<case "黑狼">>', '<<case "Black Wolf">>'),
+      ('<<case "黑狼" "巨鹰" "Night Monster">>', '<<case "Black Wolf" "Great Hawk" "Night Monster">>'),
+      ('C.npc["巨鹰"]', 'C.npc["Great Hawk"]'),
+      ('C.npc["黑狼"]', 'C.npc["Black Wolf"]'),
+      ('<<nnpc_his "巨鹰">>', '<<nnpc_his "Great Hawk">>'),
+      ('<<nnpc_his "黑狼">>', '<<nnpc_his "Black Wolf">>')],
+     lambda g: ('<<case "巨鹰">>' not in g and '<<case "黑狼">>' not in g
+                and 'C.npc["巨鹰"]' not in g and '<<nnpc_his "巨鹰">>' not in g)),
+
+    ("10. 物品名中文判断",
+     [('is "贞操锁寄生虫"', 'is "chastity parasite"')],
+     lambda g: 'is "贞操锁寄生虫"' not in g),
+
+    ("11. Yourself 判断",
+     [('=== "你自己"', '=== "Yourself"')],
+     lambda g: '=== "你自己"' not in g),
 ]
 
 
