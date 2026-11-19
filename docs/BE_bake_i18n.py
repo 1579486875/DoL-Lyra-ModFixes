@@ -32,28 +32,54 @@ total_skip = 0
 changed_passages = 0
 
 
-def _is_code_like(text):
-    """只挡真正会改坏代码的条目。
+# === widget 名 / setup 键黑名单（由下方 load 时填充）===
+_RESERVED = set()
 
-    不挡的情况（这些必须翻译）：
-      - 含 <<set / <<link / <<if 等正常宏
-      - 含 => 的箭头函数（如 _parasiteTypes.map(type => ...)）
-      - 普通单词（eels / pain / affection）
+
+def _build_reserved(data_text):
+    """从 index.html 原文里扫出所有不能翻译的标识符。"""
+    import html as _h
+    g = _h.unescape(data_text)
+    for m in re.finditer(r'<<widget\s+"([^"]+)"', g):
+        _RESERVED.add(m.group(1))
+    # setup 对象的所有键（只收纯 ASCII 的，中文键本来就不该翻）
+    for m in re.finditer(r"<<set\s+setup\.(\w+)\s+to", g):
+        _RESERVED.add(m.group(1))
+    return len(_RESERVED)
+
+
+n_res = _build_reserved(data)
+print(f"  已加载 {n_res} 个保留标识符（widget 名 + setup 键）")
+
+
+def _is_code_like(text, other=None):
+    """判断这条 i18n 条目是否不能参与翻译。
 
     挡的情况：
-      - 出现 widget / macro 定义关键字（名字不能变）
-      - 整条 f 是纯标识符（^[A-Za-z_][A-Za-z0-9_]*$）且不超过 40 字符
-        —— 这一定是变量名或 widget 名，翻了就坏
+      1) 出现 <<widget / <<macro / Macro.add —— 宏名不能变
+      2) f 是纯标识符（无空格/标点）且 t 里也含 ASCII 字母
+         —— 说明翻译破坏了标识符，如 characteristics -> ch一个racteristics
+
+    不挡的情况：
+      - f 是纯标识符但 t 是纯中文，如 Monstergirl -> 怪物女孩（正常 UI 翻译）
+      - 含宏的普通文本
     """
     if not text:
         return False
-    # 1) 宏/widget 定义关键字
     for kw in ("<<widget", "<<macro", "Macro.add"):
         if kw in text:
             return True
-    # 2) f 整体是纯标识符（无空格、无标点）
-    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", text) and len(text) <= 40:
+    # widget 名 / setup 键：整条 f 恰好等于它们时不能翻
+    if text.strip() in _RESERVED:
         return True
+    # 纯标识符：看另一边是否仍是 ASCII（破坏性翻译）
+    if other is not None:
+        is_ident = bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,60}", text))
+        if is_ident and re.search(r"[A-Za-z]", other) and not re.search(r"[\u4e00-\u9fff]", other):
+            return True
+        # 英文标识符 + 译文里混着 ASCII 标识符（部分保留原文）
+        if is_ident and re.search(r"[A-Za-z_]{3,}", other) and re.search(r"[\u4e00-\u9fff]", other):
+            return True
     return False
 
 
@@ -74,7 +100,7 @@ def fix_block(m):
         if not f or t is None:
             continue
         # === 安全检查：绝不翻译代码/标识符 ===
-        if _is_code_like(f) or _is_code_like(t):
+        if _is_code_like(f, t) or _is_code_like(t, f):
             total_skip += 1
             continue
         pos = it.get("pos", -1)
