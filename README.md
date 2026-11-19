@@ -1342,3 +1342,110 @@ TF01_nest_guard.py    ★ widget 嵌套守卫（上轮新增）
 - **第三层**：运行时 `I18nTweeReplacer`（处理运行期才出现的文本）
 
 三层叠加，**不再依赖任何一方的 `pos` 准确性**。
+
+## 第二十四轮（30+ 轮深挖：建立自动化守门员 + 修 3 类真 bug）
+
+### 一、把历史事故固化成 `validate.py`（18 项，全自动）
+
+每次构建末尾自动跑，任何 ❌ 都会阻止分发：
+
+| # | 检查项 | 对应历史事故 |
+|---|---|---|
+| 1 | widget 无嵌套 | 第 22 轮：variablesStatic 被截断 |
+| 2 | widget 名全 ASCII | 第 14 轮：characteristics → ch一个racteristics |
+| 3 | 宏配对（8 类） | 多轮 |
+| 4 | `<<script>>` 语法（Node） | 第 22 轮：Unexpected end of input |
+| 5 | 系统字段无孤立中文比较值 | 本轮新发现 |
+| 6 | `<<case>>` 标签 | — |
+| 7 | 标识符类 setup 数组未被误翻 | — |
+| 8 | passage 集合与 vanilla 一致 | — |
+| 9 | 关键 setup 表存在 | — |
+| 10 | 文件体积合理性 | — |
+
+**结果：18 / 18 通过**
+
+### 二、修掉 3 类真 bug
+
+#### bug 1：`$avery_mansion.鞠躬`（属性名被翻译）
+
+```
+vanilla:  $avery_mansion.bow        11 处
+modded :  $avery_mansion.bow        11 处 + $avery_mansion.鞠躬  1 处
+```
+
+同一个属性出现两个名字，数据分裂。已还原为 `bow`。
+同类还有 `$attitudesControl.unlockAvery鞠躬` → `unlockAveryBow`。
+
+#### bug 2：`penisdesc` 的英文子串判断失效（最严重）
+
+```javascript
+// vanilla 的 _pd 数组
+["knotted penis", ..., "equine cock", ..., "serpent penis"]
+
+// modded 的 _pd 数组（被翻译了）
+["锁结肉棒",     ..., "马屌",        ..., "蜘蛛鞭"]
+
+// 但代码还在判断英文子串
+penisdesc.includes("horse")     // "马屌" 不含 horse -> 恒 false
+penisdesc.includes("knotted")   // "锁结肉棒" 不含 knotted -> 恒 false
+penisdesc.includes("tentacle")  // 恒 false
+penisdesc.includes("strap-on")  // 恒 false
+penisdesc.includes("dolphin")   // 恒 false
+```
+
+**后果**：所有特殊阴茎（马屌/锁结/触手/穿戴式/海豚）的立绘与逻辑分支全部走不到。
+
+**修法**：保留英文判断，追加中文判断
+```javascript
+(penisdesc.includes("horse") || penisdesc.includes("马"))
+```
+共 9 处。
+
+#### bug 3：`["Sydney", "黑狼", "Ivory Wraith"]` 数组
+
+`setup.NPCNameList` 是英文（`"Black Wolf"`），所以中文数组匹配不到。
+已还原为 `["Sydney", "Black Wolf", "Ivory Wraith"]`。
+
+### 三、补 7 个 i18n 引用但从未定义的 setup 函数
+
+| 函数 | 用途 |
+|---|---|
+| `setup.BODYPARTS_CN_NAME` | 身体部位名 |
+| `setup.CAFE_FOOD_CN` | 咖啡厅食物名 |
+| `setup.DirectionCN` | 方位 |
+| `setup.NPC_CN_TOOLNAME` | 性玩具名 |
+| `setup.brothelshowType_CN` | 妓院演出类型 |
+| `setup.update_cloth_cn` | 衣物名 |
+| `setup.T.npcClothesItems` | 衣物描述容器 |
+
+全部实现为「查表，查不到返回原值」，绝不抛错。
+
+### 四、查证后**不是** bug 的（避免误修）
+
+| 现象 | 结论 |
+|---|---|
+| `["男孩","女孩"].includes(_text_output)` | **自洽** —— `_text_output` 来自 `_names.pluck()`，前面 push 的就是中文 |
+| `["亲爱的","挚爱","最爱"]` | **自洽**，同上 |
+| `["登山客","混蛋"].includes($_hikers)` | **自洽** —— `$_hikers` 内部赋值为中文 |
+| `_tentacle.fullDesc.includes("金属色")` | **i18n 已正确处理**（值和中文字面量都翻了） |
+| `$tentacles[x].desc.includes("苍白色")` | **同上** |
+| `$wardrobes[x].name.includes("更衣室")` | **同上** |
+| `setup.bodyShapescn用法` | **注释里的**，不是代码 |
+| `<<if>>` 70122/70121 差 1 | **注释里的**，剥注释后完全平衡 |
+
+### 五、方法论：这次没有「改 A 打坏 B」
+
+因为**先建立了守门员**，每次修复后立刻跑 18 项检查，任何回退都能当场发现。
+
+前七次事故的共同点是「修完没有系统性验证」；这轮把这个缺口补上了。
+
+### 六、修复后校验
+
+```
+18 / 18 通过
+中文字符 3,758,119（比上轮 +355）
+widget 名全 ASCII
+widget 嵌套 0
+$obj.中文属性 0
+7 个 setup 函数齐全
+```

@@ -96,6 +96,19 @@ def main():
         "归档", cwd=W)
     shutil.copy2(signed, os.path.join(OUT, "DoL-Lyra-0.5.12.13-CHS-modded.apk"))
 
+    # 7) 守门员
+    print("\n[7/7 守门员 validate.py]", flush=True)
+    vr = subprocess.run([sys.executable, os.path.join(W, "validate.py")],
+                        cwd=W, capture_output=True, text=True,
+                        encoding="utf-8", errors="replace")
+    tail = (vr.stdout or "").strip().split("\n")
+    for line in tail[-12:]:
+        print("  " + line)
+    if vr.returncode != 0:
+        print("\n⚠️ 守门员报告问题（见上），请人工确认后再分发")
+    else:
+        print("\n✅ 守门员全部通过")
+
     # 汇报
     final = os.path.join(OUT, "DoL-Lyra-0.5.12.13-CHS-modded.apk")
     h = hashlib.sha256(open(final, "rb").read()).hexdigest().upper()

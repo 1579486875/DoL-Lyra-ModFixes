@@ -34,6 +34,10 @@ STEPS = [
     (r"E:\TAML\_dol\work\SL01_fix_cache.py", "去掉 NPC_CN_* 的表缓存 + a light/You have"),
     (r"E:\TAML\_dol\work\SO01_js_templates.py", "替换 JS 运行时拼接的英文模板"),
     (r"E:\TAML\_dol\work\UB01_full_bake.py", "全量补齐：不看 pos 的二次翻译（查漏补缺）"),
+    (r"E:\TAML\_dol\work\VF03_cjk_guard.py", "中文标识符守卫（属性名/数组比较）"),
+    (r"E:\TAML\_dol\work\VL01_more_symbols.py", "补 7 个 i18n 引用但缺失的 setup 函数"),
+    (r"E:\TAML\_dol\work\VP02_fix_penisdesc.py", "penisdesc 英文子串判断改中英兼容"),
+    (r"E:\TAML\_dol\work\VS02_fix_text_includes.py", "文本字段英文 includes 改中英兼容"),
     (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套"),
 ]
 
