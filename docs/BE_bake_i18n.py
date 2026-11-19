@@ -34,7 +34,9 @@ changed_passages = 0
 def fix_block(m):
     global total_ok, total_skip, changed_passages
     open_tag, pname, body_esc, close_tag = m.group(1), m.group(2), m.group(3), m.group(4)
-    lst = by_p.get(pname)
+    # 关键：passage 名也要反转义（如 "Danube House S&amp;M" -> "Danube House S&M"）
+    pname_u = html.unescape(pname)
+    lst = by_p.get(pname_u) or by_p.get(pname)
     if not lst:
         return m.group(0)
 
