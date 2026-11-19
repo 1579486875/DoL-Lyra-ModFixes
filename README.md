@@ -12,8 +12,8 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | 游戏 | DoL 0.5.12.13 + ModI18N 1.0.1a |
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
-| 模组数 | 56（其中 15 个为本次新建补丁模组） |
-| APK | 182,359,498 字节（173.91 MB），SHA256 `2E0D9929947BA2587DEFDB74B9E3848145DF2B4ECCCAE4C9433B436BF24A9C4B`，已重签名（keystore `dol.jks`，alias `dol`） |
+| 模组数 | 57（其中 16 个为本次新建补丁模组） |
+| APK | 182,371,786 字节（173.92 MB），SHA256 `934AE30A5C441445AEA565F6F01ABDFF230A393BFAC92FA8C881200BE2AEFF1E`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -158,3 +158,33 @@ inject6.py  →  U13_inject.py  →  rebuild2.py
 | 资源体积 | 解压 232.7 MB；index.html 100.58 MB 是架构限制；重复图片极少 |
 | HTML 结构 | 	w-passagedata 16088/16088 配对；重复 passage 0；boot.json 非法 0 |
 | 路径大小写 | 508 条静态引用，**0 条大小写不符** |
+## 第七轮（V01–V11）：脸型表情完整补全
+
+上一轮只把 default/iris.png 复制到 foxy/gloomy/makeup，治标不治本。全量对比后发现缺的不止眼睛：
+
+| 变体 | 缺文件数 | 缺失内容 |
+|---|---|---|
+| oxy | 16 | makeup/eyeshadows*.png（2）+ ed/*（14，晒痕整套） |
+| gloomy | 23 | irisempty-left/right.png + makeup/* + ed/* |
+| makeup | 29 | 同上，另加若干 |
+
+ed/ 是**晒痕（tan）覆盖层**，makeup/ 是**眼影层**。两者整目录缺失意味着选这三套脸型时，**晒痕和眼影永远不显示**，而不是简单的一张图空白。
+
+### 修法
+
+Face Variant Fill 1.0.2：用 default 的对应图层补齐 **68 张**（foxy 16 / gloomy 23 / makeup 29），走 imgFileList。
+
+### 踩到的坑：imgFileList 的路径必须与 zip 内路径**完全一致**
+
+第一版写成：
+
+`
+zip 内:          face/default/foxy/makeup/eyeshadows.png
+imgFileList:     img/face/default/foxy/makeup/eyeshadows.png      ← 多了 img/
+`
+
+对照已经在用的 Clothes 模组才确认：它的 zip 内路径就是 img/clothes/belly/belly_mask.png，**与 imgFileList 逐字相同**。改成一致后自检「imgFileList 在 zip 内的缺失 = 0」。
+
+### 为什么不动 modded1～15
+
+那 15 套是模组添加的（modded1 有 77 个文件，modded2-9 各 69 个，modded10-15 各 43 个）。它们是作者按需精简的，补齐等于替别人改设计。用户提到的「仪态」指游戏自带的 6 种，所以只补 foxy/gloomy/makeup。
