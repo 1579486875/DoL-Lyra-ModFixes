@@ -13,7 +13,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
 | 模组数 | 61（其中 20 个为本次新建补丁模组） |
-| APK | 182,379,978 字节（173.93 MB），SHA256 `E0BB97BE2A69B50316CE7AFCE70C001D4DDFD5652B0EDE0493CFF1620CD05FEB`，已重签名（keystore `dol.jks`，alias `dol`） |
+| APK | 182,379,978 字节（173.93 MB），SHA256 `6EB7A720DDB8A3B82775DF28ADCFE3DD0E9D23A7524C865609045E6CACEB97EF`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
