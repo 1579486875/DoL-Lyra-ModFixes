@@ -28,6 +28,9 @@ STEPS = [
     (r"E:\TAML\_dol\work\OM01_bus_fix.py", "修原版 bug: set bus 缺 to"),
     (r"E:\TAML\_dol\work\PE01_status_cn.py", "直接替换 widget 里硬编码的英文状态名"),
     (r"E:\TAML\_dol\work\PK01_headers_cn.py", "替换 settingsHeader 里的英文标题"),
+    (r"E:\TAML\_dol\work\XJ01_dn_full.py", "翻 displayName（短标签，UB01 会跳过）"),
+    (r"E:\TAML\_dol\work\XK01_more_dn.py", "补第二批 displayName"),
+    (r"E:\TAML\_dol\work\YE02_all_dn.py", "一次性翻完剩余 103 个 displayName"),
     (r"E:\TAML\_dol\work\QO02_widget_cleanup.py", "兜底：修复被翻译破坏的 widget 名"),
     (r"E:\TAML\_dol\work\SF01_missing_symbols.py", "补 setup.description_CN + wTimerProgress"),
     (r"E:\TAML\_dol\work\SI01_ui_cn.py", "修 Genitals/Makeup/a light/You have/寄生虫名"),
@@ -38,7 +41,8 @@ STEPS = [
     (r"E:\TAML\_dol\work\VL01_more_symbols.py", "补 7 个 i18n 引用但缺失的 setup 函数"),
     (r"E:\TAML\_dol\work\VP02_fix_penisdesc.py", "penisdesc 英文子串判断改中英兼容"),
     (r"E:\TAML\_dol\work\VS02_fix_text_includes.py", "文本字段英文 includes 改中英兼容"),
-    (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套"),
+    (r"E:\TAML\_dol\work\XC01_collapse.py", "折叠多层宏嵌套（每次烤入都会多包一层）"),
+    (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套（必须最后）"),
 ]
 
 for path, desc in STEPS:

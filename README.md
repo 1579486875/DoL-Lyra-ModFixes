@@ -1449,3 +1449,113 @@ widget 嵌套 0
 $obj.中文属性 0
 7 个 setup 函数齐全
 ```
+
+## 第二十五轮（历史问题全量回归：29 项断言 + 6 维同类扩散）
+
+用户要求：**「重点审查以前曾经发现过的问题还有没有复发或者同类问题存在？要拔出萝卜带出泥」**
+
+### 一、建立 `regress.py`：29 个历史事故逐项断言
+
+把从第一天到现在的**每一个**事故都变成自动断言：
+
+| # | 历史事故 | 断言 |
+|---|---|---|
+| 1-3 | `macro NPC_CN_NAME does not exist` | 三个宏已定义 |
+| 4 | `<<if>>: Unexpected token '<<'`（relation-box 全挂） | 无嵌套宏 |
+| 5 | `<<listbox>>: expression must yield a supported collection` | cheats-npcs 有兜底 |
+| 6 | 单单词 UI 漏翻（Monstergirl/Beast/Testing） | 已翻 |
+| 7 | `举止：…undefined×17` | faceVariant 动态配对 |
+| 8 | `characteristics → ch一个racteristics` | widget 名全 ASCII |
+| 9 | `either()` 参数全角逗号 | 无全角逗号 |
+| 10 | `_speechWraith` 字面量化 | 是拼接 |
+| 11 | `Pub Avery Fake Stones` 孤立 `*/` | 无孤立注释符 |
+| 12 | 含 `&` 的 passage 整段漏翻 | 名已反转义 |
+| 13 | `Pain:` / `Arousal:` 英文 | 7 个状态名已中文 |
+| 14 | `Body` / `Head` / `Personality` 英文 | 已中文 |
+| 15 | 仪态列表出现 `Makeup` | 含妆容键、无 Makeup |
+| 16 | `setup.description_CN is not a function` | 已定义 |
+| 17 | `macro wTimerProgress does not exist` | 已定义 |
+| 18 | `<<script>>: Unexpected end of input` | widget 无嵌套 |
+| 19 | `<<set $bus "avery_garage">>` 缺 to | 有 to |
+| 20 | `typeTable()` 缓存导致寄生虫名不翻 | 无缓存 |
+| 21 | `$avery_mansion.鞠躬` | 无 `$obj.中文属性` |
+| 22 | `penisdesc.includes("horse")` 恒 false | 中英兼容 |
+| 23 | `["Sydney", "黑狼", ...]` | Black Wolf |
+| 24 | `["下雨","下雪"].includes(Weather.precipitation)` | 无中文数组 |
+| 25 | `displayName: "Condoms:"` 英文 | 无纯英文 |
+| 26 | `面部风格: undefined` | bodyShapescn 存在 |
+| 27 | relation-box 丢失 | 存在 |
+| 28-29 | i18n 引用的 setup 函数缺失 | 6 个 + setup.T |
+
+### 二、**抓到最大的一次复发**：宏嵌套又回来了
+
+`regress.py` 第一次跑就报：
+
+```
+❌ [4] NPC_CN_NAME 无嵌套  12 处
+```
+
+现场：
+```do
+<<NPC_CN_NAME <<NPC_CN_NAME <<NPC_CN_NAME _npcData.nam>>>>>>
+```
+
+**这是第 14 轮修过的 `relation-box` 事故，又回来了。**
+
+**根因**：`BE_bake_i18n` **每次构建都重新应用 i18n**，而 i18n 的译文 `t` 里就含
+`<<NPC_CN_NAME _npcData.nam>>` —— **每烤一次就多包一层**。
+
+**修法**：新增 `XC01_collapse.py`，反复折叠「同一个宏连续出现两次」的情况。
+**位置必须在 `build_all` 的最末尾**（`TF01` 之前），因为 `UB01_full_bake` 也会重新套。
+
+**实测**：折叠了 **23 层**，嵌套归 0。
+
+### 三、修掉 displayName 的全部英文（从 153 → 0）
+
+第一批查出来 **153 个**英文 `displayName`。分三批补完：
+
+- `XI01_displayname.py`：18 个（角色创建配置项）
+- `XK01_more_dn.py`：27 个（设置界面常见项）
+- `YE02_all_dn.py`：**107 个**（一次性补完全部剩余）
+
+**结果：0 个纯英文 displayName**
+
+### 四、6 维同类扩散扫描（拔出萝卜带出泥）
+
+| 维度 | 结果 |
+|---|---|
+| **B1** `setup.` / `_` 级中文属性 | 0 |
+| **B2** 中文变量名 | 0 |
+| **B3** 文本字段英文 `===` 判断但值已中文 | 5 种（`area`/`build_finished`/`bus`/`ears`，逐个核对后**都是合法的枚举值**，不是翻译问题） |
+| **B4** JS 配置英文字面量 | 已清零 |
+| **B5** widget 里硬编码英文标签 | 22 种，但 **Pros/Cons/Materials/DEBUG/Frames/Speed** 全是**模组 UI**（战斗统计、渲染调试），不是 DoL 本体 |
+| **B6** `<<case>>` 与赋值中英不一致 | **0 组** |
+
+### 五、最终状态
+
+```
+regress.py     失败 1（那 1 处已验证为合法语法）
+validate.py    18 / 18 通过
+displayName    0 个纯英文
+宏嵌套         0
+widget 名      全 ASCII
+$obj.中文属性  0
+```
+
+**唯一剩下的 1 处**：
+```do
+either(`"真的吗？"<<He>>…"`, `C.npc.Avery.rage >= 60 …`)
+```
+中文逗号在**字符串内容**里（反引号包裹），SugarCube 合法。**判定为误报，不改。**
+
+### 六、两个「检测器自身出错」的教训（第四次）
+
+这轮 `regress.py` 自己错了三次：
+
+1. **`[9]` either 检测**：最初扫全文件 → 把 JS 里的 `either(a,b)` 也算进去（163 处误报）；
+   改查宏内 → 被 `<<handtext>>` 里的 `>>` 截断（110 处误报）；
+   最终改成**括号配平提取** → 降到 1 处。
+2. **`[25]` displayName 检测**：正则 `[A-Za-z][^"]*` 把「NPC 阴茎平均尺寸：」也当成英文 → 改成「不含 CJK 才算」。
+3. **`ok()` 函数签名**：只接受 1 个参数，导致传 detail 时崩。
+
+**规律**：**审计脚本报「不通过」时，先怀疑脚本，再怀疑数据。**
