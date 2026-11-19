@@ -715,3 +715,60 @@ for a, b in ((html.escape(old, quote=False), html.escape(new, quote=False)), (ol
 ```
 
 **只转 `<` `>`，不转引号**。这轮有 3 次修复因为这一点没命中。
+
+## 第十六轮（彻底修好 _speechWraith + 全库同类兜底）
+
+上一轮承认「`_speechWraith` 这处没修好」，本轮把它修完了，并做了一次全库同类扫描。
+
+### _speechWraith 的 4 处赋值，全部修正
+
+**修前**（i18n 把变量拼接改成了字面量）：
+
+```do
+<<set _speechWraith to "你_speak。\"_line1 _line2\"">>     ← _line1 _line2 是字面量
+<<set _speechWraith to "你_speak。\"_line1\"">>           ← _line1 是字面量
+<<set _speechWraith to "_speaks。" + "\"" + "_line1" + _line2 + "\"">>   ← "_line1" 是字符串
+<<set _speechWraith to "_speaks。\"_line1\"">>            ← _line1 是字面量
+```
+
+**修后**（`_line1` / `_line2` 恢复成变量）：
+
+```do
+<<set _speechWraith to "你_speak。\"" + _line1 + _line2 + "\"">>
+<<set _speechWraith to "你_speak。\"" + _line1 + "\"">>
+<<set _speechWraith to "_speaks。" + "\"" + _line1 + _line2 + "\"">>
+<<set _speechWraith to "_speaks。\"" + _line1 + "\"">>
+```
+
+### 全库同类扫描（与 vanilla 对照）
+
+| 模式 | modded | vanilla | 结论 |
+|---|---|---|---|
+| `<<set>>` 字符串字面量含 `<<` | **148** | **148** | 完全一致，**这是 SugarCube 合法语法** |
+| `either()/random()` 参数区全角逗号 | 1 | 0 | 引入 1 处，影响极小 |
+| `either()` 参数里的裸 TwineScript | **0** | **8** | **比原版还干净** |
+
+**重要发现**：`<<set $x to "文字<<macro>>">>` 里的宏是**会被 SugarCube 解析的**，
+148 处与 vanilla 完全一致，证明这是原版正常写法，**不是 bug**。
+前几轮我一度以为这是问题，属于误判。
+
+### 一个反复踩的坑（记入构建脚本约定）
+
+`index.html` 里宏是 `&lt;&lt;if` 这种**转义形态**，但**引号是原样的 `"`**。
+
+```python
+for a, b in ((html.escape(old, quote=False), html.escape(new, quote=False)), (old, new)):
+    if a in data:
+        ...
+```
+
+只转 `<` `>`，**不转引号**。这轮有 4 次修复因为这一点没命中，多跑了三遍构建。
+
+### 最终校验
+
+```
+_speechWraith 7 处赋值    全部 ✅
+NPC_CN_* 三宏             全部存在
+嵌套残留                  0
+5 张映射表                全部存在
+```

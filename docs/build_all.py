@@ -23,6 +23,8 @@ STEPS = [
     (r"E:\TAML\_dol\work\MH01_last_two.py", "补齐剩余 2 处 either 反引号与 Wraith 内嵌宏"),
     (r"E:\TAML\_dol\work\MI01_backtick.py", "给 either() 裸宏参数补反引号"),
     (r"E:\TAML\_dol\work\MJ01_wraith.py", "修 Wraith 的字符串内嵌 <<= _line2>>"),
+    (r"E:\TAML\_dol\work\NB01_wraith_full.py", "彻底修 _speechWraith 的两处赋值（变量拼接）"),
+    (r"E:\TAML\_dol\work\NC01_wraith_b1.py", "精确修 B1 的字符串"),
 ]
 
 for path, desc in STEPS:
