@@ -13,7 +13,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
 | 模组数 | 58（其中 17 个为本次新建补丁模组） |
-| APK | 183,711,178 字节（175.20 MB），SHA256 `BE9878E0A47D05AA8745B04C99E73A0C84CADAB6D97E37EFE51A27159DE542E1`，已重签名（keystore `dol.jks`，alias `dol`） |
+| APK | 183,711,178 字节（175.20 MB），SHA256 `747BB4BEB1A2565860A97DE6C8702E5A98D12BB2433707CB29B32F7ED5BB0819`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -164,11 +164,14 @@ inject6.py  →  U13_inject.py  →  rebuild2.py
 
 | 变体 | 缺文件数 | 缺失内容 |
 |---|---|---|
-| oxy | 16 | makeup/eyeshadows*.png（2）+ ed/*（14，晒痕整套） |
-| gloomy | 23 | irisempty-left/right.png + makeup/* + ed/* |
+| oxy | 16 | makeup/eyeshadows*.png（2）+ 
+ed/*（14，晒痕整套） |
+| gloomy | 23 | irisempty-left/right.png + makeup/* + 
+ed/* |
 | makeup | 29 | 同上，另加若干 |
 
-ed/ 是**晒痕（tan）覆盖层**，makeup/ 是**眼影层**。两者整目录缺失意味着选这三套脸型时，**晒痕和眼影永远不显示**，而不是简单的一张图空白。
+
+ed/ 是**晒痕（tan）覆盖层**，makeup/ 是**眼影层**。两者整目录缺失意味着选这三套脸型时，**晒痕和眼影永远不显示**，而不是简单的一张图空白。
 
 ### 修法
 
@@ -353,3 +356,62 @@ DB03_fake_stones.py   Fake Stones 翻译 + 移除多余 */
 `
 
 跑两遍结果完全一致，已验证。
+
+## 第十一轮（35 轮 · 以 vanilla 为基线的差异审计）
+
+### 方法论升级
+
+前几轮的教训是「改 A 打坏 B」。本轮引入**基线对照法**：把 vanilla 原包与 modded 包逐项对比，
+任何非预期差异都视为 bug。
+
+| 维度 | vanilla | modded | 结论 |
+|---|---|---|---|
+| passage 集合 | 16087 | 16087 | 完全一致 |
+| widget 定义 | 5097 | 5097 | 无丢失无新增 |
+| `if` 配对 | 69960/69960 | 70021/70021 | 平衡 |
+| `for` 配对 | 1049/1049 | 1053/1053 | 平衡 |
+| `switch` 配对 | 3527/3527 | 3553/3553 | 平衡 |
+| `link` 配对 | 38846/38846 | 38845/38845 | 平衡 |
+| 断链 | 22 种 | 22 种 | 未引入新断链 |
+| CSS 类名含中文 | 0 | 0 | 干净 |
+| 图片路径含中文 | 0 | 0 | 干净 |
+
+### 本轮修掉的 3 个真 bug
+
+**1. `$compoundWraith`（3 处）**
+
+i18n 把 `$compound` 改成 `$compoundWraith`，后者从未定义，界面会显示 undefined。
+`$compound` 有 2 处定义 / 185 处引用，是合法变量。
+
+**2. `<<if worn.handheld`（1 处）**
+
+i18n 把 `$worn` 的 `$` 丢了。`Gwylan Walk School Solo` 里那一句会抛
+`Cannot read properties of undefined`。
+
+注意：裸 `worn.xxx` 全库有 1201 处，绝大多数是 JS 局部变量，**绝不能全局替换**。
+
+**3. `settings.watersportsEnabled`（3 处）**
+
+i18n 把 `$settings` 的 `$` 丢了，而 `$settings.watersportsEnabled` 有 17 处正确写法。
+裸 `settings` 是 `window.settings`（不存在），条件恒假，**失禁场景永不触发**。
+
+### 排除的误报（避免过度修复）
+
+| 候选 | 判定 |
+|---|---|
+| `$temple_wall_victim is "男孩"`（3 处） | 正常：赋值也是 `"男孩"`，匹配成立 |
+| `School Boy's Toilets` 断链 | 正常：passage 存在，检查脚本 unescape 有误 |
+| `Estate Manor Intro Entrance` / `Mansion Intro 9 Push` | 原版遗留：vanilla 里同样断，不改 |
+| `setup.BODYPARTS_CN_NAME` 未定义 | 正常：NpcNameCN 的 JS 已提供 |
+| `version.major` 裸变量 | 不改：`$version` 只有 schema 字段，改了同样 undefined |
+| 裸 `settings.` 其余 12 处 | 正常：tooltip 插件 / lodash 的 JS 局部变量 |
+| `<<optionsfrom setup.legPositions>>` 等 | 正常：JS 运行时定义 |
+
+### 本轮验证
+
+```
+JS 语法       76 文件 0 错误
+widget 名     0 个含非 ASCII
+faceVariant   6 键（撤销了上一轮误加的 17 个）
+宏配对        link 38845/38845
+```
