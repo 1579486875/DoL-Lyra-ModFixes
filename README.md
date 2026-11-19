@@ -1094,3 +1094,80 @@ python RC01_auto_archive.py <apk路径> "说明"
 导致用户拿到的包被覆盖后就找不回来了。
 
 以后每次构建都会自动归档，**`archive/` 里的文件永不覆盖**。
+
+## 第二十一轮（修 2 个报错 + 表格缓存问题）
+
+用户装包后报了 2 个错，并列出若干未翻译项。
+
+### 报错 1：`setup.description_CN is not a function`
+
+```
+0.5.12.13 出错 (:: Orphanage Intro): <<npc>>: error within widget code
+(<<set>>: bad evaluation: TypeError: setup.description_CN is not a function)
+```
+
+i18n 在译文里引用了 `setup.description_CN(...)`，但**从未定义**。
+和之前的 `NPC_CN_NAME` 是同一类问题。
+
+**修法**：在 `Widgets variablesStatic` 里内置实现，含 60+ 条外观描述词对照表
+（tall / short / slim / curvy / pale / tan / blond / brunette ...），
+查不到就返回原值，**绝不抛错**。
+
+### 报错 2：`macro <<wTimerProgress>> does not exist`
+
+```
+0.5.12.13 出错 (:: Domus Street): <<streeteffects>>: errors within widget code
+(macro <<wTimerProgress>> does not exist)
+```
+
+`<<wTimerProgress>>` 原本定义在 `Widgets Wraith`（有 widget tag，结构也正常），
+但运行时就是找不到。**原因未查明**。
+
+**修法**：在 `Widgets variablesStatic` 里补一份等价实现（更早注册）：
+```do
+<<widget "wTimerProgress">>
+  <<if $wraith and $wraith.state and $wraith.hunt is 0 and Time.isBloodMoon()>>
+    <<set $wraith.timer to ($wraith.timer || 0) + 1>>
+    ...
+  <</if>>
+<</widget>>
+```
+
+### 关键发现：`setup.NPC_CN_*` 的表缓存导致寄生虫名不翻译
+
+```javascript
+// 之前（错）
+var typeMap = null;
+function typeTable() {
+    if (typeMap === null) typeMap = parseTable(st.NPCTypeList_cn_name);
+    return typeMap;
+}
+```
+
+**首次调用时如果 `NPCTypeList_cn_name` 还没定义 → 缓存了空表 → 之后永远返回英文**。
+
+这就是为什么 `Eel / Slime / Worm / Maggot / Spider` 一直不翻译，而
+`fish / snake` 却能翻（那几条在别处已翻好）。
+
+**修法**：去掉缓存，每次实时读表。
+
+### 其他未翻译项
+
+| 项 | 处理 |
+|---|---|
+| `Genitals:` | 硬替换为 `生殖器：` |
+| `Makeup`（仪态第一项） | `faceVariantOptions` 补 `"妆容": "makeup"`（现在 `_faceVariantscn` 是 `Object.keys()`，加了自动配对） |
+| `You have 一个阴道` | JS 模板 `sentence += "You have "` → `"你有"`，共 7 处 |
+| `a light` | **误报** —— 是 JS 注释里的 `a lightweight` |
+| `Catppuccin Mocha` / `Arial` 等 | 专有名词，不翻 |
+
+### 关于「实时翻译和烤入能否共存」
+
+**它们一直共存**：`I18nTweeReplacer` 始终在模组列表里。
+
+但两者会互相干扰：烤入后文本已是中文，`I18nTweeReplacer` 的 `f` 是英文 → 失配 → 不重复翻。
+
+**这本来是好事**（不重复劳动）。问题在于：**两边都有 `pos` 偏移问题**，
+都可能在同一些位置失配，于是出现「烤入漏了、运行时也补不上」。
+
+本轮的解法是：**对确认残留的项做硬替换**，不依赖任何一方的匹配逻辑。
