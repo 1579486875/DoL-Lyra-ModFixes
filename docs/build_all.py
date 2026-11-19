@@ -16,6 +16,7 @@ STEPS = [
     (r"E:\TAML\_dol\work\JB01_translate_remaining.py", "翻译最后 37 句残留英文剧情"),
     (r"E:\TAML\_dol\work\JC01_split_sentences.py", "翻译被 HTML 标签拆开的 2 句"),
     (r"E:\TAML\_dol\work\JD01_last_one.py", "翻译最后 1 句（Temple Forgiveness）"),
+    (r"E:\TAML\_dol\work\KB01_hairtype_guard.py", "给 fringetypeCN/hairtypeCN 加 undefined 兜底"),
 ]
 
 for path, desc in STEPS:

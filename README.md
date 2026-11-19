@@ -13,7 +13,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
 | 模组数 | 58（其中 17 个为本次新建补丁模组） |
-| APK | 183,711,178 字节（175.20 MB），SHA256 `5D1EC3A9003A80DB1689F0A2552329490DBEB9BC34588C90DDACF81BC3A247DE`，已重签名（keystore `dol.jks`，alias `dol`） |
+| APK | 183,711,178 字节（175.20 MB），SHA256 `__PENDING__`，已重签名（keystore `dol.jks`，alias `dol`） |
 
 ## 修复清单（30 项）
 
@@ -488,3 +488,89 @@ You feel a <span @class="basicJitterCss()">strange heat</span> just beneath your
 | `for` 配对 | 1049/1049 | 1053/1053 | 平衡 |
 | `switch` 配对 | 3527/3527 | 3553/3553 | 平衡 |
 | `link` 配对 | 38846/38846 | 38845/38845 | 平衡 |
+
+## 第十三轮（35 轮 · 存档兼容 / 资源 / 控件 / 运行时风险）
+
+前两轮查的是「翻译是否破坏代码」。本轮换五个新维度，仍然全部以 vanilla 为基线。
+
+### 1. 存档兼容（1-6 轮）
+
+| 检查项 | 结果 |
+|---|---|
+| modded 新增 passage | **0**（与 vanilla 完全一致） |
+| modded 新增 `$` 变量 | 8 个，全部有 `V.xxx =` 赋值 |
+| `setup.*` 关键表定义位置 | 全部在 `Widgets variablesStatic` |
+| 模组脚本 `V.*` 赋值 | DoLSims / DomRobin / clothesicon 三个模组共 26 个变量 |
+
+**唯一需要防护的**：`$fringetypeCN` / `$hairtypeCN` —— i18n 作者用
+`<<run setup.hairstyles.fringe.forEach(...)=> V.fringetypeCN = style.name_cap>>`
+动态赋值，**若发型名不在列表里就是 undefined**。
+已在显示处加 `|| "自然下垂"` 兜底。
+
+### 2. 图片资源（7-14 轮）
+
+| 检查项 | vanilla | modded |
+|---|---|---|
+| `img/` 静态引用 | 585 | 471 |
+| **缺失** | **169** | **52** |
+| modded 独有缺失 | — | **0** |
+
+之前几轮已经补掉了 117 个缺失（`FaceVariantFill` 的 68 张脸型图 + iris 等）。
+剩 52 个里 **48 个是 `img/sex/missionary/active/`**（游戏本体就没有这套图），
+3 个是 `<<run canvaslayer>>` 文档示例里的假路径，1 个是 `img/clothers/` 的原始笔误。
+
+其他：模组 `imgFileList` 与实际路径 **0 不符**；路径大小写 **0 不符**；
+GIF 189 个 **0 损坏**；PNG 抽样 200 个 **0 损坏**。
+
+### 3. 交互控件（15-22 轮）
+
+| 控件 | 数量 | 结论 |
+|---|---|---|
+| `<<button>>` | 139 / 139 | 配对平衡 |
+| `<<radiobutton>>` | 687 | 全部正常绑定 |
+| `<<checkbox>>` | 164 | 全部正常绑定 |
+| `<<numberStepper>>` | 92 | 全部有反引号表达式 |
+| `<<cycle>>` | 2 | 全部 autoselect |
+| `<<listbox>>` | 221（210 autoselect） | 正常 |
+| `cheats*` widget | 22 个 | **全部有调用** |
+
+### 4. 运行时风险（23-30 轮）
+
+| 指标 | vanilla | modded | 差 |
+|---|---|---|---|
+| `.length` 断言 | 317 | 321 | +4 |
+| `<<= 纯属性直出>>` | 138 | 302 | +164 |
+| 除零（`Math.x(a/b)`） | 34 | 34 | **0** |
+| `JSON.parse` | 9 | 9 | **0** |
+| 可选链 `?.` | 1039 | 1091 | +52 |
+| `$arr[i].prop` | 11536 | 11719 | +183 |
+
+增加的部分全部来自 i18n 新增的翻译语句，除零与 JSON.parse **零差异**。
+
+### 5. 结构复验（31-35 轮）
+
+| 维度 | vanilla | modded |
+|---|---|---|
+| passage | 16087 | 16087 |
+| widget 定义 | 5097 | 5097 |
+| `<<for>>` 配对 | — | 1056/1056 |
+| `<<switch>>` 配对 | — | 3558/3558 |
+| `<<link>>` 配对 | — | 38940/38940 |
+| `<<button>>` 配对 | — | 138/138 |
+| `<<capture>>` 配对 | — | 181/181 |
+| `<<widget>>` 配对 | — | 5102/5102 |
+| `<<if>>` 配对（去注释） | — | **70021/70021** |
+
+### 6. 两个统计陷阱（记录备查）
+
+**陷阱一：不去注释会多算**
+
+直接 `g.count("<<if")` 得 70120/70119（差 1），逐 passage **去注释后**是
+70021/70021 完全平衡。差异来自注释里的示例代码。
+
+**陷阱二：raw string 里的 `\b` 是字面量**
+
+`re.findall(r'<<if\b', body)` 匹配的是 `<<if` 这个字面串，永远得 0。
+正确写法是 `r'<<if'`。本轮 `KI01` 因此误报 `Estate Cards Cheating Plead` 0/5。
+
+> 结论：宏配对以 `KH01`（逐 passage + 去注释）为准，其余统计脚本只作参考。
