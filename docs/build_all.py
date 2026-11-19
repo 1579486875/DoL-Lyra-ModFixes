@@ -26,6 +26,8 @@ STEPS = [
     (r"E:\TAML\_dol\work\NB01_wraith_full.py", "彻底修 _speechWraith 的两处赋值（变量拼接）"),
     (r"E:\TAML\_dol\work\NC01_wraith_b1.py", "精确修 B1 的字符串"),
     (r"E:\TAML\_dol\work\OM01_bus_fix.py", "修原版 bug: set bus 缺 to"),
+    (r"E:\TAML\_dol\work\PE01_status_cn.py", "直接替换 widget 里硬编码的英文状态名"),
+    (r"E:\TAML\_dol\work\PK01_headers_cn.py", "替换 settingsHeader 里的英文标题"),
 ]
 
 for path, desc in STEPS:

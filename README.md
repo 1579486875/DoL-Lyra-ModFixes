@@ -855,3 +855,92 @@ function toJS(expr) {
 
 **直接用 `<<if $x is 1>>` 丢给 JS 会 78% 报错** —— 因为 `to`/`is` 是 SugarCube 自己的语法。
 第一次跑出 143,086 个"错误"就是这个原因，加上转换后降到 89 个。
+
+## 第十八轮（用户现场反馈：状态名/标题未汉化）
+
+用户装包后截图反馈「Pain / Arousal / Fatigue / Stress / Trauma / Control / Allure
+还是英文，Body / Head / Personality 也是」，并质疑「之前的修复到底有没有生效」。
+
+### 诚实回答：确实没生效，原因是 i18n 条目存在但烤入时被跳过
+
+查证过程：
+
+```
+i18n 里确实有：
+  Pain:     -> 疼痛：     pN=Widgets pos=59588
+  Arousal:  -> 性奋：     pN=Widgets pos=49824
+  Fatigue:  -> 疲劳：     pN=Widgets pos=43140
+  ...（共 7 条，全都在）
+
+但 BE_bake_i18n 应用时：
+  pos 精确匹配 = False（偏移了）
+  f in body    = True （子串存在）
+  _is_code_like(f) = False（不会被拦）
+→ 按理应该走 elif 兜底替换，但实际没替换
+
+原因未查明（可能与同一 passage 内其他条目的替换顺序有关）。
+```
+
+### 改用最可靠的办法：不依赖 i18n，直接硬替换
+
+**新增 `PE01_status_cn.py`**：直接按「行首缩进 + 英文名 + 换行」的模式替换
+widget 里的裸文本：
+
+```python
+PAT_LINE = re.compile(r"(\n[ \t]+)([A-Z][A-Za-z]+):(\s*\n)")
+```
+
+覆盖 34 个状态名（Pain / Arousal / Fatigue / Stress / Trauma / Control / Allure /
+Purity / Corruption / Lust / Sensitivity / Wetness / Hunger / Thirst / Bladder /
+Bowels / Filth / Mood / Teeth / Hair / Fear / Awareness / ...）。
+
+同时处理 JS 的 `displayName: "Condoms:"` / `displayName: "Genitals:"`。
+
+**新增 `PK01_headers_cn.py`**：替换 `settingsHeader` 里的英文标题
+（`Body` / `Head` / `Personality` / `NPC Genders` 等 31 个）。
+
+### 为什么之前查不出来
+
+`PJ01` 第一次审计 `settingsHeader` 时报告「全部中文」，是因为我的正则
+`<div class="settingsHeader">([^<]{1,60})</div>` **不匹配换行形态**：
+
+```html
+<div class="settingsHeader">
+    Body
+</div>
+```
+
+`Body` 前后有 `\n\t\t\t\t` 和 `\n\t\t\t`，`[^<]{1,60}` 能匹配但
+`</div>` 前有换行，导致整个匹配失败 —— **误报为"已汉化"**。
+
+### 关于 Makeup
+
+用户截图「仪态」列表第一项是 `Makeup`。查证：
+
+```
+setup.faceVariantOptions 只有 1 处写入（6 个中文键）
+模组 JS 里没有任何 faceVariantOptions 写入
+index 里所有 8 处引用都不写这个对象
+```
+
+**结论：新包里不可能出现 `Makeup`**，截图应是旧包（`973276E1` 之前）的行为。
+如果新包仍出现，需要用户确认装的 SHA256。
+
+### 本轮校验
+
+```
+Pain: / Arousal: / Fatigue: / Stress: / Trauma: / Control: / Allure:  全部清零
+settingsHeader 纯英文标题                                              0
+疼痛：/ 性奋：/ 疲劳：                                                 已注入
+```
+
+### 方法论教训（第三次犯同一个错）
+
+**HTML 转义形态**：`index.html` 里 `<` `>` 是 `&lt;` `&gt;`，**引号是原样的**。
+
+```python
+# 正确
+pat = re.compile(r'(&lt;div class="settingsHeader[^"]*"&gt;)(\s*)Body(\s*)(&lt;/div&gt;)')
+```
+
+这轮 `PK01` 第一版因为漏了转义，跑了两次才生效。已写进构建约定。
