@@ -48,6 +48,7 @@ STEPS = [
     (r"E:\TAML\_dol\work\AAE01_fix_selfassign.py", "删掉 var st = st 自赋值"),
     (r"E:\TAML\_dol\work\AAH01_fix_all.py", "折叠 <<= 嵌套 + 修全角括号 + 英文单词"),
     (r"E:\TAML\_dol\work\ZJ02_fix_babyrent.py", "补 babyRentDisplay 丢失的颜色参数"),
+    (r"E:\TAML\_dol\work\AAP01_final_table.py", "最终修复 NPCTypeList 粘连+补复数"),
     (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套（必须最后）"),
 ]
 
