@@ -192,6 +192,26 @@ def main():
     check("关键 setup 表齐全", not missing, str(missing))
 
     print("\n" + "=" * 90)
+    print("9b) 中文宏名（<<中文>> 是非法宏）")
+    print("=" * 90)
+    cn_macros = re.findall(r"<<([\u4e00-\u9fff][^>]{0,60})>>", g)
+    check(f"无中文宏名", not cn_macros, str(cn_macros[:5]))
+
+    print("\n" + "=" * 90)
+    print("9c) 属性表达式（@xxx）里含中文")
+    print("=" * 90)
+    attr_cn = []
+    for m in re.finditer(r'@([\w:-]+)="([^"]{0,400})"', g):
+        expr = m.group(2)
+        if not re.search(r"[\u4e00-\u9fff]", expr):
+            continue
+        base = re.sub(r'"(?:[^"\\]|\\.)*"', '""', expr)
+        base = re.sub(r"'(?:[^'\\]|\\.)*'", "''", base)
+        if re.search(r"[\u4e00-\u9fff]", base):
+            attr_cn.append((m.group(1), expr[:60]))
+    check("属性表达式无裸中文", not attr_cn, str(attr_cn[:3]))
+
+    print("\n" + "=" * 90)
     print("10) 文件体积")
     print("=" * 90)
     size_mb = os.path.getsize(APK) / 1048576

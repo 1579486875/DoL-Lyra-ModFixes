@@ -1559,3 +1559,96 @@ either(`"真的吗？"<<He>>…"`, `C.npc.Avery.rage >= 60 …`)
 3. **`ok()` 函数签名**：只接受 1 个参数，导致传 detail 时崩。
 
 **规律**：**审计脚本报「不通过」时，先怀疑脚本，再怀疑数据。**
+
+## 第二十六轮（8 个全新维度深挖：抓到 3 个严重 bug）
+
+用户要求：**再全面深挖，同时检查历史问题有没有复发或同类遗漏**。
+
+### 一、8 个从未查过的维度
+
+| # | 维度 | 结果 |
+|---|---|---|
+| A | HTML 标签配对（div/span/table/…） | **modded 与 vanilla 一致**（仅 `<br>` 空标签微差，无害） |
+| B | 链接目标（link/goto/display/include） | **modded 独有 0** |
+| C | widget 参数个数 vs 调用 | modded 独有 3 个 → **1 个真问题** |
+| D | 变量消失（vanilla 有 modded 无） | **0** |
+| E | CSS class/id 含中文 | **3 处 → 2 个真 bug** |
+| F | switch case 重复 | **modded 独有 0** |
+| G | for 循环变量作用域 | **完全一致**（217 处 / 59 种） |
+| H | nobr/silently/capture 配对 | **`<<silently>>` 多 1 个闭合 → 真 bug** |
+
+### 二、抓到的 3 个严重 bug
+
+#### bug 1：中文宏名 `<<保持了安静>>`（最严重）
+
+```do
+<<if $willpowerSuccess>>
+    你控制住了你自己，
+    <<保持了安静>><<orgasm>><</silently>>     ← 中文宏名！
+```
+
+vanilla 原文是 `<<silently>>`。**`silently` 被翻译成了「保持了安静」** → 宏不存在 →
+`Macros.get("保持了安静")` 返回 undefined → **运行时红字**。
+
+同类还有 `<<他>>`（应为 `<<He>>`）。
+
+**已修，并加入 `validate.py` 检测（第 9b 项）**。
+
+#### bug 2：CSS 类名 `settings头部er`
+
+```html
+<div class="settings头部er">基础设置</div>
+```
+
+`settingsHeader` 被翻成 `settings头部er` → **CSS 规则 `.settingsHeader` 不匹配** →
+**开始界面的设置区块失去样式**。
+
+#### bug 3：变量路径带全角句号 `$featsBoosts.up成绩。newLife`
+
+```do
+<span @class="$featsBoosts.up成绩。newLife ? 'green' : 'red'">
+```
+
+`upgrades` 被翻成 `up成绩`，**并且带上了全角句号 `。`** —— 在 JS 里是非法的。
+共 7 处。已修为 `$featsBoosts.upgrades.`。
+
+### 三、1 个参数丢失 bug
+
+`babyRentDisplay` 的第 3 个参数（颜色）在翻译中丢失：
+
+```do
+vanilla: <<babyRentDisplay " plus " " for not looking after..." "gold">>   ← 3 个
+modded : <<babyRentDisplay "还有代替你照顾孩子的" "">>                      ← 只剩 2 个
+```
+
+定义是 `<<printmoney $babyRent _args[2]>>`，`_args[2]` 为 undefined 会丢失颜色。
+5 处调用已全部补齐。
+
+### 四、查证后**不是** bug 的（避免误修）
+
+| 现象 | 结论 |
+|---|---|
+| `$var。`（852 处） | **正常** —— 文本里「变量 + 中文句号」是合法插值 |
+| 标识符紧邻中文（1643 处） | **正常** —— 中文文本紧跟变量名 |
+| `$player.gender_body is ({'男':'m',...})` | **自洽** —— `"男性化".charAt(0)` = `"男"` |
+| `whitneyRoofRuleBreak` 参数少 | **可选参数**，定义为 `_args[1] is "panties"`，undefined 安全 |
+| `actionstentacleadvcheckbox` 参数少 | **误报** —— 参数里含 `<<bottom>>` 截断了正则 |
+| `<<for>>` 用 `$_i` | **与原版一致**（vanilla 也是 217 处） |
+
+### 五、守门员升级：18 → 20 项
+
+新增：
+- **9b) 无中文宏名**
+- **9c) 属性表达式（`@xxx="..."`）无裸中文**
+
+**`validate.py` 20 / 20 通过**
+
+### 六、本轮方法论
+
+**「属性表达式」这个判据是关键**：
+- 文本里 `$var。` → 合法（插值后跟中文）
+- 属性里 `$var。` → 非法（属性值是 JS 表达式）
+
+用这个区分，把 852 处误报降到 0，同时精确抓到真正的 7 处。
+
+**同类：中文宏名** —— `<<中文>>` 一律非法，用这个判据扫出 2 处。

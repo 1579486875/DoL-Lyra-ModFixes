@@ -42,6 +42,9 @@ STEPS = [
     (r"E:\TAML\_dol\work\VP02_fix_penisdesc.py", "penisdesc 英文子串判断改中英兼容"),
     (r"E:\TAML\_dol\work\VS02_fix_text_includes.py", "文本字段英文 includes 改中英兼容"),
     (r"E:\TAML\_dol\work\XC01_collapse.py", "折叠多层宏嵌套（每次烤入都会多包一层）"),
+    (r"E:\TAML\_dol\work\ZE01_fix_css_cn.py", "修 CSS 类名/变量名被翻译破坏"),
+    (r"E:\TAML\_dol\work\ZO01_cn_macro_fix.py", "修中文宏名（<<保持了安静>> -> <<silently>>）"),
+    (r"E:\TAML\_dol\work\ZJ02_fix_babyrent.py", "补 babyRentDisplay 丢失的颜色参数"),
     (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套（必须最后）"),
 ]
 
