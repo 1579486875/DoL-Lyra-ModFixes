@@ -1,47 +1,61 @@
 JSON.stringify((function () {
   var out = {};
-  out.types = {
-    Macro: typeof Macro,
+
+  out.globals = {
+    SugarCube: typeof SugarCube,
     Story: typeof Story,
-    Wikifier: typeof Wikifier,
-    Engine: typeof Engine,
     State: typeof State,
-    Scripting: typeof Scripting,
-    SugarCube: typeof SugarCube
+    setup: typeof setup,
+    Engine: typeof Engine
   };
-  out.sc = window.SugarCube ? Object.keys(window.SugarCube).slice(0, 40) : null;
 
-  // Macro 的能力
-  try { out.macroAdd = typeof Macro.add; } catch (e) { out.macroAdd = "ERR"; }
-  try { out.macroHas = typeof Macro.has; } catch (e) { out.macroHas = "ERR"; }
-  try { out.macroGet = typeof Macro.get; } catch (e) { out.macroGet = "ERR"; }
-  try { out.macroDelete = typeof Macro.delete; } catch (e) { out.macroDelete = "ERR"; }
-
-  // Story 的能力
-  try { out.storyGet = typeof Story.get; } catch (e) { out.storyGet = "ERR"; }
+  // SugarCube 对象上有哪些 key
   try {
-    var p = Story.get("Widgets Wraith");
-    out.passageOk = !!p;
-    out.passageTextLen = p ? p.text.length : 0;
-    out.processTextType = p ? typeof p.processText : "N/A";
-    if (p && typeof p.processText === "function") {
-      out.processedLen = p.processText().length;
+    out.SugarCubeKeys = Object.keys(SugarCube).slice(0, 40);
+  } catch (e) { out.scErr = String(e); }
+
+  // Story 上的 key
+  try {
+    out.StoryKeys = (typeof SugarCube.Story !== "undefined" && SugarCube.Story)
+      ? Object.keys(SugarCube.Story).slice(0, 40) : "NO_STORY";
+  } catch (e) { out.stErr = String(e); }
+
+  // Story 是否可直接访问
+  try {
+    out.StoryFromGlobal = (typeof Story !== "undefined" && Story) ? Object.keys(Story).slice(0, 40) : "NO";
+  } catch (e) { out.sgErr = String(e); }
+
+  // 试各种获取 passage 列表的方式
+  var tries = {};
+  function t(label, fn) {
+    try { var v = fn(); tries[label] = (v === undefined) ? "undefined" : (v === null ? "null" : (typeof v === "object" ? "obj len=" + (v.length !== undefined ? v.length : "n/a") : String(v).slice(0, 40))); }
+    catch (e) { tries[label] = "ERR:" + String(e).slice(0, 50); }
+  }
+  t("SugarCube.Story.passages", function () { return SugarCube.Story.passages; });
+  t("SugarCube.Story.lookup", function () { return SugarCube.Story.lookup; });
+  t("SugarCube.Story._passages", function () { return SugarCube.Story._passages; });
+  t("Story.passages", function () { return Story.passages; });
+  t("Story.get('Start')", function () { return SugarCube.Story.get("Start"); });
+  out.tries = tries;
+
+  // Story.get 返回什么
+  try {
+    var ps = SugarCube.Story.get("Start");
+    if (ps) {
+      out.startPassageKeys = Object.keys(ps).slice(0, 20);
+      out.startTextLen = ps.text ? ps.text.length : "NO_TEXT";
+      out.startTextHead = ps.text ? ps.text.slice(0, 100) : "";
     }
-  } catch (e) { out.storyErr = String(e.message).slice(0, 150); }
+  } catch (e) { out.getErr = String(e).slice(0, 100); }
 
-  // 检查 effectsWraith 是否真的不在
+  // Story 有没有遍历方法
   try {
-    var d1 = document.createElement("div");
-    $(d1).wiki('<<effectsWraith>>');
-    out.effectsWraithRender = (d1.textContent || "").slice(0, 150);
-  } catch (e) { out.effectsWraithRender = "THROW:" + String(e.message).slice(0, 100); }
-
-  // 试着从一个已知存在的 widget 复制
-  try {
-    var d2 = document.createElement("div");
-    $(d2).wiki('<<checkWraith>>');
-    out.checkWraithRender = (d2.textContent || "").slice(0, 100) || "(空但无错)";
-  } catch (e) { out.checkWraithRender = "THROW:" + String(e.message).slice(0, 100); }
+    var methods = [];
+    for (var k in SugarCube.Story) {
+      if (typeof SugarCube.Story[k] === "function") methods.push(k);
+    }
+    out.storyMethods = methods.slice(0, 30);
+  } catch (e) { out.mErr = String(e).slice(0, 100); }
 
   return out;
 })())
