@@ -57,6 +57,12 @@ FIXES = [
     # 10. order: 被翻成 次序:
     ('{ prop: "price", 次序: \'asc\', enabled: false }',
      '{ prop: "price", order: \'asc\', enabled: false }'),
+    # 11. 文本位置的 _lower. 被翻成 _下体。
+    ("Your _下体。name scrape<<if _lower.plural isnot 1>>s<</if>> against the ground. 你听到一声撕裂声。",
+     "你的<<if _lower.plural isnot 1>>_lower.cn_name_cap 在地上刮破了，<<else>>_lower.cn_name_cap 在地上刮破了，<</if>>你听到一声撕裂声。"),
+    ("_下体。cn_name_cap", "_lower.cn_name_cap"),
+    ("_下体。name", "_lower.name"),
+    ("_下体。", "_lower."),
 ]
 
 print("=" * 90)
