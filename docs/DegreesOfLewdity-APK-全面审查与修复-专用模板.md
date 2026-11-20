@@ -184,7 +184,7 @@ E:\TAML\_dol\
 | ZIP 完整 | `zipfile.ZipFile(apk).testzip() is None` |
 
 **实测**：鸿蒙（HarmonyOS 7.0 / API 26）**拒绝 SHA384withRSA**。
-重建 keystore 时要用 `-sigalg SHA256withRSA`，别名 `dol`，密码 `dolchs`。
+重建 keystore 时要用 `-sigalg SHA256withRSA`，别名 `dol`，密码 `<签名口令：见本机 work\keystore.local，不入库>`。
 
 **打包保护**：`rebuild2_fast.py` 里有 passage 数安全阀（< 10000 直接中止），并强制 arsc 用 `ZIP_STORED`。
 

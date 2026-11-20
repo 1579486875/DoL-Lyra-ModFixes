@@ -58,7 +58,7 @@ if os.path.exists(out_b):
     shutil.rmtree(out_b, ignore_errors=True)
 r = subprocess.run([
     "java", "-jar", SIGNER, "-a", dst_a, "--out", out_b,
-    "-ks", KS, "--ksAlias", "dol", "--ksKeyPass", "dolchs", "--ksPass", "dolchs",
+    "-ks", KS, "--ksAlias", "dol", "--ksKeyPass", os.environ["DOL_KS_PASS"], "--ksPass", os.environ["DOL_KS_PASS"],
 ], capture_output=True, text=True, encoding="utf-8", errors="replace")
 out = (r.stdout or "") + (r.stderr or "")
 for line in out.split("\n"):
