@@ -88,6 +88,19 @@ mods/_withdrawn/  已撤下的模组（附撤下原因，见对应轮次报告�
 docs/             逐轮审查报告、审查模板、关键脚本
 ```
 
+## 自动化修复工具
+
+`build_all.py`（位于 `E:\TAML\_dol\work\`）可自动执行所有修复脚本（BG01-BG26）。
+
+**使用方法**：
+```bash
+python build_all.py          # 执行所有修复
+python build_all.py --list   # 列出所有脚本
+python build_all.py --regress # 修复后运行回归测试
+```
+
+所有脚本都是幂等的，可重复执行。执行前建议备份 APK。详见 [第19轮报告](<docs/第19轮报告.md>)。
+
 ## 已知不可修（附理由）
 
 | 项 | 理由 |
