@@ -5,7 +5,23 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，56 个模组 + 枯木逢春 modpack）
 审查按《DegreesOfLewdity-APK-全面审查与修复-专用模板》（`docs/` 内）的 L3 力度执行，保意图分级见模板 §0.2。
 所有修复都遵循一条硬规矩：**不靠拿掉作者功能来换日志安静**。
 
-> **最新：第 7 轮** —— ✅ **修复「引擎 JS 被解实体」，游戏恢复可启动；REGRESS 98/98 + RT_GATE G1–G9 全过！**
+> **最新：第 8 轮** —— ✅ **用户实机反馈的四类问题已修；REGRESS 98/98 + RT_GATE G1–G9 全过！**
+>
+> 本轮全部来自用户实机报告（不是静态扫描）：
+> - `props/undefined/*.png` → `wearProp` 的 `setup.propDefaults` 兜底（folder 永远有值）
+> - `macro <<br>> does not exist`（Harvest Street）→ **LocationsExt v1.8.1 的 boot.json 里 `<br>` 写成 `<<br>>`**，改内嵌模组 ZIP 9 处
+> - `large胸部` / `massive胸部` → `setup.breastsizes` 英文数组换中文（13 档，索引不变）
+> - 服装编辑器 `Export` 按钮 → 4 处 UI 文本改「导出」
+> - `slenderman` / `lissomeman` / `glowing tentacle` → `NPCTitleList_cn_name` 补 3 条
+>
+> 详见 [第8轮报告](<docs/第8轮报告-用户实测修复.md>)。
+> **SHA256**：`46143C838D15AEC6DC628758FA65FD9F2CE32E2F45785835C48575BEF1761796`
+>
+> **历史轮次**：[第1-7轮](<docs/>)（42/90 → 59/90 → 70/90 → 70/84 → 98/98 → 98/98稳定 → 可运行修复 → 实测修复）。
+>
+> ---
+>
+> **第 7 轮** —— ✅ **修复「引擎 JS 被解实体」，游戏恢复可启动；REGRESS 98/98 + RT_GATE G1–G9 全过！**
 >
 > 本轮定位并修复了第 6 轮包“装得上、打不开”的根因：
 > - ❌ **根因**：`script-sugarcube`（引擎，381 KB）与 webpack `BeforeSC2`（4.6 MB）两个**明文 JS 块**被“解实体”（`&#33;`→`!`、`&quot;`→`"`），JS 语法崩坏 → 页面 1502 秒不就绪、`SugarCube is not defined`
