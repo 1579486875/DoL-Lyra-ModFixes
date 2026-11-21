@@ -72,6 +72,11 @@ FIXES = [
      [('is "贞操锁寄生虫"', 'is "chastity parasite"')],
      lambda g: 'is "贞操锁寄生虫"' not in g),
 
+    ("11b. wardrobe locker 判断",
+     [('wardrobes[_locationName].name.includes("更衣室")',
+       'wardrobes[_locationName].name.includes("locker")')],
+     lambda g: 'name.includes("更衣室")' not in g),
+
     ("11. Yourself 判断",
      [('=== "你自己"', '=== "Yourself"')],
      lambda g: '=== "你自己"' not in g),
@@ -90,7 +95,10 @@ def main():
             if not old:
                 continue
             # 同时处理转义与原始形态
-            for a, b in ((H.escape(old, quote=False), new), (old, new)):
+            # 第12轮修正：转义形态必须替换成「转义后的 new」。旧版写成 (H.escape(old), new)，
+            # 把裸 <</if>> 写进了 tw-passagedata 正文 —— 浏览器 HTML 解析会把其中的 </if> 当作
+            # 无主结束标签丢弃，运行时变成 '<>'（社区 issue #582 同一处：Fishing Moor Hiker Molestation Finish）。
+            for a, b in ((H.escape(old, quote=False), H.escape(new, quote=False)), (old, new)):
                 if a in data:
                     n = data.count(a)
                     data = data.replace(a, b)

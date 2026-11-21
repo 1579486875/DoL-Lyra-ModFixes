@@ -1,0 +1,22 @@
+[
+ {"type": "eval", "name": "模组加载状态", "file": "probe_modlog.js"},
+ {"type": "dump", "name": "导出运行时全部 passage/widget/script", "out": "_rt_gate_passages.jsonl"},
+ {"type": "eval", "name": "运行时文本(成就/服装描述)", "file": "probe_runtime_text.js"},
+ {"type": "play", "name": "Start2", "wait": 4000},
+ {"type": "eval", "name": "NPC_CN_TYPE 鱼名", "file": "probe_cntype.js"},
+ {"type": "play", "name": "Orphanage Intro", "wait": 4000},
+ {"type": "play", "name": "Bedroom", "wait": 4000},
+ {"type": "wiki", "name": "社交面板 <<social>>", "code": "<<social>>", "textLen": 300},
+ {"type": "play", "name": "Clothing Shop", "wait": 5000},
+ {"type": "wiki", "name": "服装店全部栏(generateshoppage)", "pre": "SugarCube.State.variables.clothingShopSlot='all';", "code": "<<clothingShopv2 \"clothing\" \"all\">>", "textLen": 200},
+ {"type": "play", "name": "Forest Shop", "wait": 5000},
+ {"type": "wiki", "name": "孕期搭讪 <<catcallpregnancy>>", "code": "<<catcallpregnancy>>"},
+ {"type": "wiki", "name": "银海螺 <<ChatWR>>", "code": "<<npc \"Ivory Wraith\">><<person1>><<ChatWR>>_wraithChat<<endevent>>", "textLen": 300},
+ {"type": "wiki", "name": "钓鱼开场文本(#579)", "pre": "var V=SugarCube.State.variables;V.fishingHookedFish={type:'herring',size:40};V.fishing=Object.assign(V.fishing||{}, {currentBait:'blackberry'});", "code": "<<fishingMinigameStartText>>", "textLen": 200},
+ {"type": "wiki", "name": "马匹(#583) <<livestock_horse>>", "code": "<<livestock_horse>>|<<print _text_output>>", "textLen": 60},
+ {"type": "play", "name": "Shopping Centre"},
+ {"type": "play", "name": "Bully Toilets Fight Finish", "wait": 3000},
+ {"type": "play", "name": "Fishing Moor Hiker Molestation Finish", "wait": 3000, "pre": "var V=SugarCube.State.variables;V.fishing=V.fishing||{};V.fishing.fishingMoor=V.fishing.fishingMoor||{};"},
+ {"type": "play", "name": "Police Cell", "wait": 3000},
+ {"type": "play", "name": "Livestock Escape Centaur", "wait": 3000}
+]

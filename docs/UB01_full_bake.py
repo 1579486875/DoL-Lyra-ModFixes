@@ -9,6 +9,29 @@
 安全阀：f 长度 >= 6、无代码字符、含空格或标点、不是标识符。
 """
 import html as H
+
+def _load_i18n(path):
+    """带 pickle 缓存的 i18n 加载（65MB JSON 每次解析要 2-3 秒）。"""
+    import pickle, os
+    cache = path + ".pkl"
+    try:
+        if os.path.exists(cache) and os.path.getmtime(cache) > os.path.getmtime(path):
+            with open(cache, "rb") as f:
+                return pickle.load(f)
+    except Exception:
+        pass
+    import json
+    with open(path, "r", encoding="utf-8") as f:
+        d = json.load(f)
+    try:
+        with open(cache, "wb") as f:
+            pickle.dump(d, f, protocol=4)
+    except Exception:
+        pass
+    return d
+
+
+
 import json
 import os
 import re
@@ -19,7 +42,7 @@ HTML = r"E:\TAML\_dol\work\index_modded6.html"
 I18N = r"E:\TAML\_dol\work\i18n_dict.json"
 
 
-def is_safe(f, reserved):
+def is_safe(f, reserved, t=None):
     if not f or len(f) < 6:
         return False
     if re.search(r"[<>$`{}\\]", f):
@@ -28,12 +51,20 @@ def is_safe(f, reserved):
         return False
     if f.strip() in reserved:
         return False
+    # 第12轮：变量/属性路径（_npcData.nam、T.foo.bar）不是文本，全量替换会改坏代码
+    #   实测：官方条目 "_npcData.nam" → "<<NPC_CN_NAME _npcData.nam>>"，不看 pos 全替换后
+    #   把 <<if _npcData.nam is "Ivory Wraith">> 等全部改坏，并在显示处套出 <<NPC_CN_NAME <<NPC_CN_NAME …>>>>
+    if re.fullmatch(r"[A-Za-z_$][\w$]*(?:\.[\w$]+|\[[^\]]*\])+", f.strip()):
+        return False
+    # 第12轮：译文包含原文（包裹式翻译）→ 重复替换会层层嵌套，不幂等
+    if t is not None and f in t:
+        return False
     return True
 
 
 def main():
     print("加载 i18n...")
-    d = json.load(open(I18N, "r", encoding="utf-8"))
+    d = _load_i18n(I18N)
     items = d["typeB"]["TypeBInputStoryScript"]
     by_p = defaultdict(list)
     for it in items:
@@ -75,7 +106,7 @@ def main():
             if not f or t is None or f == t:
                 stats["空或相同"] += 1
                 continue
-            if not is_safe(f, reserved):
+            if not is_safe(f, reserved, t):
                 stats["不安全"] += 1
                 continue
             if f not in body:
@@ -113,7 +144,7 @@ def main():
         f, t = it.get("f"), it.get("t")
         if not f or t is None or f == t:
             continue
-        if not is_safe(f, reserved):
+        if not is_safe(f, reserved, t):
             continue
         if len(f) < 20:
             continue

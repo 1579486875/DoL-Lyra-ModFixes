@@ -12,7 +12,13 @@ if len(re.findall(r'<tw-passagedata[^>]*name="', data)) < 16000:
     sys.exit(1)
 
 CMP = "_npcData.nam"
-SHOW = "<<print setup.NPC_CN_NAME(_npcData.nam)>>"
+# 第12轮修正：
+#  1) 显示处恢复汉化包原本的宏形态 <<NPC_CN_NAME _npcData.nam>>（宏在正文里是合法的，只是不能进 <<if>>）。
+#     maplebirch 框架的 zone 补丁正是按 /\t_npcData.nam|\t<<NPC_CN_NAME _npcData.nam>>/ 匹配后换成
+#     maplebirch.auto(...)；旧版改成 <<print setup.NPC_CN_NAME(...)>> 导致该补丁 unmatched（运行时日志实测）。
+#  2) <<npcrelationship>> 的参数必须是英文原名：它内部用 V.NPCName.findIndex(i => i.nam === _args[0]) 查人，
+#     旧版传中文名 → 每个 NPC 的关系描述都报「<<npcrelationship>>提供了错误的参数」。恢复 vanilla 写法。
+SHOW = "<<NPC_CN_NAME _npcData.nam>>"
 
 FIXES = [
     ('<<if (<<NPC_CN_NAME _npcData.nam>>>>>> is ("Ivory Wraith") or ($wraith.mimic is <<NPC_CN_NAME _npcData.nam>>>>>> and $wraith.revealed))>>',
@@ -22,7 +28,7 @@ FIXES = [
     ('<<elseif $wraithIntro and $wraith.mimic is <<NPC_CN_NAME _npcData.nam>>>>>> and',
      '<<elseif $wraithIntro and $wraith.mimic is _npcData.nam and'),
     ('<<npcrelationship <<NPC_CN_NAME _npcData.nam>>>>>>>>',
-     '<<npcrelationship setup.NPC_CN_NAME(_npcData.nam)>>'),
+     '<<npcrelationship _npcData.nam>>'),
     ('<<NPC_CN_NAME _npcData.nam>>>>>>>>？', SHOW + '？'),
     ('<<NPC_CN_NAME _npcData.nam>>>>>>', SHOW),
 ]

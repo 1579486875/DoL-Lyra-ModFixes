@@ -19,11 +19,11 @@ if MARK in g:
 
 OLD_RAW = '<<set $_realSlot to ($clothingShopSlot is "all" ? _item.slot : $clothingShopSlot)>>'
 NEW_RAW = (
-    '<!-- [R17] slot 兜底：模组服装常漏 slot 字段，按 index 反查 -->'
+    '<!-- [R17] slot 兜底：模组服装常漏 slot 字段，按 index 反查（箭头参数不能用 _ 前缀，第12轮修正） -->'
     '<<set $_realSlot to ($clothingShopSlot is "all" '
-    '? (_item.slot || Object.keys(setup.clothes).find(_k => _k !== "all" '
-    '&& Array.isArray(setup.clothes[_k]) '
-    '&& setup.clothes[_k].some(_x => _x && _x.index === _item.index)) || "upper") '
+    '? (_item.slot || Object.keys(setup.clothes).find(k => k !== "all" '
+    '&& Array.isArray(setup.clothes[k]) '
+    '&& setup.clothes[k].some(x => x && x.index === _item.index)) || "upper") '
     ': $clothingShopSlot)>>'
 )
 

@@ -1,19 +1,24 @@
-﻿# DoL-Lyra-ModFixes
+# DoL-Lyra-ModFixes
 
-Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审查与修复集**。
+Degrees of Lewdity（Lyra 0.5.12.13 CHS，56 个模组 + 枯木逢春 modpack）整合包的**审查与修复集**。
 
-审查按 RimWorld《全面审查与修复-通用模板》的 L3 力度执行：四维度（完整性 / 兼容性 / 性能 / 必要性）+ §0.2 保意图分级。
+审查按《DegreesOfLewdity-APK-全面审查与修复-专用模板》（`docs/` 内）的 L3 力度执行，保意图分级见模板 §0.2。
 所有修复都遵循一条硬规矩：**不靠拿掉作者功能来换日志安静**。
+
+> **最新：第 12、13 轮** —— 建了运行时导出与运行时验证门（RT_GATE），挖出一批「静态全绿、运行时是坏的」问题：
+> 服装店分页崩、钓鱼开场报错、成就描述大面积变英文、半人马选项消失、社交面板「贝利>>」、鱼名英文、角色名与正文不一致等。
+> 详见 [第12轮报告](<docs/第12轮报告.md>)、[第13轮报告](<docs/第13轮报告.md>)、[与社区汉化仓库的对比](<docs/社区汉化仓库对比.md>)。
 
 ## 基线
 
 | 项 | 值 |
 |---|---|
-| 游戏 | DoL 0.5.12.13 + ModI18N 1.0.1a |
+| 游戏 | DoL 0.5.12.13 + ModI18N 1.0.1a（与社区 Eltirosto 发布版逐字节一致） |
 | ModLoader | 2.101.1 |
 | maplebirch 框架 | 5.6.2 |
-| 模组数 | 58（其中 17 个为本次新建补丁模组） |
-| APK | 183,711,178 字节（175.20 MB），SHA256 `__PENDING__`，已重签名（keystore `dol.jks`，alias `dol`） |
+| 模组条目 | 57（56 个 ZIP 模组 + 1 个枯木逢春 modpack；第 12 轮撤下 Quoted Link Fix） |
+| APK | 见最新轮次报告里的 SHA256；已重签名（SHA256withRSA，keystore `dol.jks`，alias `dol`），`resources.arsc` STORED |
+| 构建门禁 | REGRESS_ALL → validate → exec_verify → RT_GATE（运行时），任何一项失败都不部署 |
 
 ## 修复清单（30 项）
 
@@ -35,7 +40,7 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 | 7 | DoLSims 11 个 + DomRobin 2 个 passage 被引用但不存在 | `Dead Link Stubs 1.0.0`，补 13 个带返回的兜底页 |
 | 8 | 游戏本体 7 个 passage 缺失（庄园入口/森林被抓/擦窗/监狱图书室/礼拜堂/模特） | `Game Dead Link Stubs 1.0.0`。**vanilla 包同样缺失** |
 | 9 | 3 个 widget 从未定义（`fishingrod_held_icon` / `fishing_cast_time` / `gCompStage`） | `Missing Widget Stubs 1.0.0` |
-| 10 | 8 处链接目标连引号一起写进 passage 名（`[[Next\|"School Boy's Toilets"]]`） | `Quoted Link Fix 2.0.0`，findRegex 兼容 `Next`/`继续` |
+| 10 | ~~8 处链接目标连引号一起写进 passage 名（`[[Next\|"School Boy's Toilets"]]`）~~ | **第 12 轮撤下**：带引号的目标不是死链（引擎 `evalPassageId` 会求值），而 `Quoted Link Fix` 的正则以未转义 `[[` 开头，生效后把 4 个 passage 改坏了。模组文件移到 `mods/_withdrawn/` 备查 |
 | 11 | `Robin Hug Cry` 锚点基于旧版（`gte 2` vs 原文 `gte 5`） | 适配为 `gte 5`，findString 与 replaceFile 同步 |
 
 ### 图片类
@@ -72,8 +77,9 @@ Degrees of Lewdity（Lyra 0.5.12.13 CHS，53 个模组）整合包的**静态审
 ## 目录
 
 ```
-mods/          本次自建的 12 个补丁模组（可直接放进 ModLoader）
-docs/          逐轮审查报告
+mods/             自建/修补过的模组（可直接放进 ModLoader）
+mods/_withdrawn/  已撤下的模组（附撤下原因，见对应轮次报告）
+docs/             逐轮审查报告、审查模板、关键脚本
 ```
 
 ## 已知不可修（附理由）
@@ -81,7 +87,7 @@ docs/          逐轮审查报告
 | 项 | 理由 |
 |---|---|
 | `img/sex/missionary/active/` 48 张 | BESC 从没画过 missionary 的主动方视角，vanilla 包里也是 0 文件。需要重画，不是改路径的问题 |
-| 游戏本体 4 条 TweeReplacer 失配 | 锚点唯一、汉化后仍存在、静态能命中，真机就是失配。运行时字符串差异 |
+| ~~游戏本体 4 条 TweeReplacer 失配~~ | **第 12 轮已解决**：根因是 maplebirch 的 zone 补丁先改写了锚点（运行时导出可见），`AR02` 修好后 ModLoader 补丁错误为 0 |
 | 169 条游戏源码废弃图片引用 | 多数在 `<!-- -->` 注释里，不执行 |
 | `index.html` 105 MB | 53 个模组塞进单文件的架构限制 |
 | `CombatStatusDisplay-Lyra` tweeFileList 冗余 2 项 | 它是 Lyra 底包第 25 个模组，改它要动 base64，收益太低 |

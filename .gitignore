@@ -1,0 +1,6 @@
+﻿keystore.local
+*.jks
+*.keystore
+*.p12
+*.pfx
+__pycache__/

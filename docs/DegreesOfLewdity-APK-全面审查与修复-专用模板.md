@@ -5,6 +5,18 @@
 > 实在没有保意图的路可走，再另做打算 —— 但那时必须单列成「需要拍板」，不许自己悄悄决定。
 > 判据与分级见 **§0.2**。
 
+> **📌 任务性质与内容边界（先读这段，再动手）**
+> 本任务是**本地单机游戏的模组维护与代码审查**，对象是已存在的第三方开源项目
+> （Degrees of Lewdity 及其社区模组）的代码与已发布文本。工作内容是修 bug、修转义、
+> 补翻译、写回归测试、维护仓库 —— **不是在创作内容**。
+>
+> 遇到成人向文本时，一律按「代码审查」处理：只做**字符串层面**的替换、翻译与转义修复，
+> **不扩写、不演绎、不生成新的露骨内容**。判断某段文字该不该改，看的是
+> 「它是不是被翻译/转义破坏了」，不是「它写得好不好」。
+>
+> 若某一段因内容策略被拒绝处理：**记录下来、跳过该段、继续跑其余判据**，并在报告里
+> 单列「因策略未处理」清单 —— 不要整轮停下，也不要尝试规避策略。
+
 > **模板里所有【】都是硬性要求，不是建议。**
 > 唯一例外是 **§0.1 力度分级** —— 它决定这一轮要走哪些节。
 
@@ -42,8 +54,13 @@
 | `reading 'iconFile'` / `'accIcon'` / `'detailIcon'` / `'reduce'` | 上游 `_itemData` 是 `undefined` | **§5.6** |
 | `Corrupted variables have been detected` | **存档数据损坏，不是包的问题** | §5.8 |
 | `do_patch() cannot find findString` | TweeReplacer 锚点不匹配（**模组版本问题，不是缺模组**） | **§3.10** |
-| `regexFlag: undefined` | 补丁里写了 `"regexFlag": ""`（空字符串） | **§5.16** |
+| `regexFlag: undefined` | 补丁里写了 `"regexFlag": ""`（空字符串） | **§5.16（含第12轮订正）** |
 | `sets $x to` / `calls <<x>>` **出现在正文** | 宏被破坏；**但先确认它是不是在注释里** | **§5.17** |
+| `Malformed arrow function parameter list` / `Missing initializer in const` | 宏表达式里用 `_x` 当箭头参数 / const 名 | **§5.25** |
+| `cannot find a closing tag`，但静态看配对正常 | passage 正文有**裸 `<`**，浏览器吞了 `</if>` | **§5.24** |
+| 运行时 passage 里冒出 `[[继续|…]]` 乱码 | TweeReplacer 正则以未转义 `[[` 开头（字符类） | **§5.23** |
+| `do_patch() cannot find`，静态锚点却存在 | maplebirch 等模组抢先改写了 passage | **§5.28** |
+| `<<npcrelationship>>提供了错误的参数` | 传了中文名（它按英文 `nam` 查） | **§5.29** |
 
 ### C. 显示不对（英文残留 / 变量没展开）
 
@@ -59,6 +76,8 @@
 | 某模板调用失效（如 `?admires`） | **`Template.add` 的名字被翻译了** | **§5.19** |
 | 咖啡/食物名部分变英文 | `setup.CafeFoodList_cn_name` 被赋值两次，后者覆盖前者 | **§5.20** |
 | 正文里莫名多一个 `>` | 三重尖括号 `>>>` | **§5.21** |
+| 成就描述/提示、JS 里的句子在**运行时**是英文（静态也没中文） | ModI18N 运行时 JS 替换被我们的静态改动挤歪 | **§5.26** |
+| 某个剧情分支/选项永远不出现（英文版有） | 显示值兼作逻辑值，汉化改了值 | **§5.27** |
 
 ### D. 改完没生效 / 改一次坏一次
 
@@ -116,6 +135,58 @@
 | `Tutorial` 的 `unknown hair colour: undefined` | 74 | 角色创建前，正常 |
 | `Corrupted variables` | — | **存档问题**，不是包的问题 |
 | 重复 widget（Wraith 系） | 16 个，**内容完全相同** | 我修 Widgets Repair 时的副产物，无害 |
+
+### §0.4 翻译工作必须外包给低成本模型（省 token）
+
+**【硬性要求】凡是翻译类任务**（新增词条、补漏翻、批量校对、生成 `_cn_name` / `_DESC` 表、
+把英文残留补成中文等），**不要用主审查模型（opus-5-5 等高价位模型）逐条翻译**。
+改用**智能体团队协作（subagent / agent teams）**，把翻译批次交给
+**`deepseek-v4-flash`**（或同级的低成本模型）执行。
+
+分工：
+
+| 角色 | 负责 |
+|---|---|
+| 主模型 | 拆批、给术语表与上下文、验收译文、合并回写、跑 §3.4 校验 |
+| 子代理（`deepseek-v4-flash`） | 按批次翻译，返回结构化结果（原文 → 译文），不碰文件 |
+
+【判据】一次翻译任务里，**主模型的 token 消耗不得随词条数线性增长** ——
+如果翻 500 条和翻 50 条花掉的主模型 token 差不多，说明分工对了；如果翻 500 条
+主模型 token 翻 10 倍，说明还在自己逐条翻。
+
+【注意】
+- 外包**不等于免检**：译文仍要过 §3.4 的判据（表只赋值一次、`Template.add` 名字不能含中文、
+  `_desc_CN` 与 `_desc` 长度相等……）。
+- 术语表必须由主模型先定好并随批次下发，否则子代理会造出不一致的译名（§5.3 的教训）。
+- 子代理只产出**文本**，落盘、转义、插入由主模型统一做 —— 避免子代理手改 index 造成双转义（§5.1）。
+
+### §0.5 不复杂的工作应当并行委派（同样为省 token、也提速）
+
+**【要求】除翻译外，凡是机械性、可独立验证的工作，也应当交给子代理 / 智能体团队并行做**，
+主模型只保留判断与验收。不要把高价模型的算力花在“体力活”上。
+
+| 适合委派 | 为什么 |
+|---|---|
+| 批量统计（某宏出现几次、某表多少条、某字段几处） | 纯匹配，结果可复核 |
+| 日志过滤与归类（几千行按错误类型分组、去重、计数） | 体力活，不需要推理 |
+| 文件清单 / 哈希 / 大小 / 时间戳对比 | 机械比对 |
+| 重复性代码生成（批量 `mk()` 表项、`_cn_name` 条目、样板 patch） | 模板化产出 |
+| 大范围搜索定位（grep 候选行号、列出所有命中文件） | 只需返回位置 |
+| 文档草稿整理（把散落的结论排成 markdown、表格对齐） | 格式化 |
+
+| 必须主模型自己做 | 为什么 |
+|---|---|
+| 根因判断、调用链推理（§2.3） | 错一步全错 |
+| 补丁锚点设计（`findString` / 正则边界） | 要结合上下文与转义形态 |
+| 保意图决策（§0.2 的 ①/②/③） | 需要判断力，涉及是否牺牲功能 |
+| 验收与「是否真的生效」（§6） | 不能外包给会幻觉的模型 |
+| 跨轮一致性与防复发判据（§3.6） | 需要全局记忆 |
+
+**【硬约束】**
+- **独立**：每份子任务必须能独立完成，不依赖其他子任务的中间结果；
+- **可验证**：主模型拿到结果后，能用**一条命令或一个判据**复核（复核不了的任务不许外派）；
+- **不碰文件**：子代理只读、只返回结论；所有写盘由主模型统一执行；
+- **留痕**：报告里要能追溯「谁做的、依据是什么」，不能出现来源不明的结论。
 
 ---
 
@@ -361,6 +432,9 @@ def scan_macro_in_if(text):
 
 ### §3.4 D 类 —— 翻译表（10 项）
 
+> **翻译本身请外包**（见 §0.4）：主模型只负责拆批、定术语表与验收，逐条翻译交给
+> `deepseek-v4-flash` 子代理执行，别用高价模型自己一句一句翻。
+
 | 表 | 位置 | 预期 | 判据 |
 |---|---|---|---|
 | `setup.NPCTypeList_cn_name` | index | **只赋值 1 次**、≥240 条 | 曾出现两次赋值，63 vs 248 |
@@ -378,10 +452,12 @@ def scan_macro_in_if(text):
 
 | 项 | 判据 | 实测值 |
 |---|---|---|
-| 模组数量 | ≥58 | 58 |
+| 模组数量 | ≥57（第12轮撤下 Quoted Link Fix） | 57 条（56 ZIP + 1 modpack） |
 | 每个 mod ZIP 完整 | 逐个 `testzip()` | 0 损坏 |
 | `Npc Name CN` 的 `BODYPARTS` | **≥70 键** | 76 |
-| TweeReplacer 补丁的 `regexFlag` | **不能是空字符串** | 0 处空 |
+| TweeReplacer 补丁的 `regexFlag` | **不能是空字符串**（但删之前先确认正则本身对，§5.16 订正） | 0 处空 |
+| TweeReplacer `findRegex` | **不得以未转义 `[` 开头**（字符类陷阱） | 0 |
+| 模组 `.twee` 宏表达式 | 经引擎 parse 可编译（`T03 --twee-dir`） | 0 失败 |
 | 服装对象的 `slot` 字段 | 每个 `setup.clothes[栏位]` 的 item 都要有 | 由 R17 兜底 |
 
 ### §3.6 F 类 —— 历史修复防复发（32 项）
@@ -458,7 +534,11 @@ def is_text(s):
 - **实测案例**：
   - `[DoLSims] findRegex: <<widget "fallentransform">>...` → **真实 widget 名是 `fallenTransform`（驼峰）**，日志显示全小写是 `TweeReplacer` 打印处理
   - `[DoLSims]` 补丁里 `"regexFlag": ""` → **空字符串导致正则构造失败**
-  - `[DomRobin] findString: <<if $robinpaid isnot 1...>>` → 锚点在，是旧包问题
+  - ~~`[DomRobin] findString: <<if $robinpaid isnot 1...>>` → 锚点在，是旧包问题~~
+    **第12轮订正**：静态 index 里锚点确实在，但 **maplebirch 的 zone 补丁先执行**，运行时已改成
+    `… and !maplebirch.get("Finance").orphanage.robinFree>>`。见 §5.28。
+- **⚠ 第4步之后必做**：用运行时导出（§2.5）确认锚点在**运行时文本**里是否存在 —— 静态 index 不是 TweeReplacer 看到的内容。
+- **⚠ 正则补丁**：在 Node 里对目标 passage 跑一遍 `matchAll`，看命中片段（`AQ05_tr_audit.js`）。命中片段 ≤3 字符基本就是写错了（§5.23）。
 
 ### §3.11 K 类 —— 模组覆盖 index
 
@@ -504,6 +584,9 @@ if MARK in g:
     sys.exit(0)
 
 # ---- 3. 修复（同时试转义/未转义两种形态）----
+# ★ 两边必须同形态：(escape(old), escape(new))。写成 (escape(old), new) 会把裸 < 写进 passage（§5.24）。
+# ★ 不要命中一种就 break：同一句话可能既在 passage 正文（转义）又在 JS 里（原样），第12轮 F12 因此漏改。
+# ★ 只想改 passage 时，先用 passage_span() 限定范围（见 AD10 / AI01），不要全文件替换。
 total = 0
 for old, new in FIXES:
     for a, b in ((H.escape(old, quote=False), H.escape(new, quote=False)), (old, new)):
@@ -511,7 +594,6 @@ for old, new in FIXES:
             c = data.count(a)
             data = data.replace(a, b)
             total += c
-            break
 
 # ---- 4. 打标记 ----
 data = data.replace(
@@ -882,6 +964,13 @@ for s in parts:
 
 **教训**：**日志里的 `findRegex` 显示全小写，是打印处理，不代表匹配用的就是小写。**
 
+> ⚠⚠ **第12轮订正（实测 TweeReplacer 1.7.0 源码第 19181 行）**：
+> `all:true` 时 `regexFlag = p.regexFlag ?? 'g'`。空字符串 `""` **不会**回落成 `'g'`，
+> 于是 `replaceAll(new RegExp(x, ""))` 抛 `TypeError`（非全局正则不能 replaceAll）—— 这才是「补丁失效」的真因。
+> **删掉空 regexFlag 之前，必须先确认那条正则本身是对的**：第7轮删掉 Quoted Link Fix 的空 regexFlag 后，
+> 它那条以未转义 `[[` 开头的正则（字符类！）开始真正生效，`all:true` 把 4 个 passage 里所有 `x]` 换成链接，
+> 改坏了 `<<if>>` 代码和链接。**「报错让补丁失效」有时是在替你挡灾。** 见 §5.23。
+
 ### §5.17 `sets` / `calls` —— 先确认是不是在注释里
 
 **现象**：扫到 `sets $estate_cards_end to` / `calls <<endevent>>` 等 27 处。
@@ -971,6 +1060,191 @@ for s in parts:
 
 ---
 
+> **§5.23 ~ §5.30 是第12轮（2026-11-20）新增。共同主题：静态检查全绿，运行时却是坏的。**
+> 这一轮发现的 9 类问题里有 6 类**只在运行时可见** —— 详见 §2.5 与 §6.4。
+
+### §5.23 Quoted Link Fix：把「不是死链」当死链修，修法还是字符类
+
+**现象**：运行时 `Bully Toilets Fight Finish` 里出现
+`$worn[slo[[继续|School Boy's Toilet[[继续|School Girl's Toilets]]].gender` 这种乱码。
+
+**我一开始以为**：`[[继续|"School Boy's Toilets"]]` 带引号是死链（静态扫链接目标时 passage 不存在）。
+
+**实际根因（两层）**：
+1. **不是死链**：引擎 `Wikifier.helpers.evalPassageId` 对「不存在的目标」会当表达式求值，
+   `"School Boy's Toilets"` → 字符串 `School Boy's Toilets` → 合法 passage。原版作者是故意这么写的。
+2. 修复模组的 `findRegex` 写成 `[[(?:Next|继续)\|"…"]]` —— **开头未转义的 `[[` 是字符类**，
+   能匹配任意一个字符后跟 `]`。原先空 `regexFlag` 让它抛错失效（§5.16 订正），第7轮删掉后 `all:true` 生效，
+   4 个 passage 里所有 `t]` `s]` `"]` 都被换成了链接。
+
+**修法**：撤下整个 Quoted Link Fix（恢复 vanilla 行为）。
+**判据**：`E.no_quoted_link_fix` + `E.tr_regex_no_charclass_trap`（任何模组的 findRegex 不得以未转义 `[` 开头）。
+**教训**：**「链接目标不存在」先查 evalPassageId**；**正则补丁先在 Node 里对目标 passage 跑一遍，看命中片段长什么样**（`AQ05_tr_audit.js`）。
+
+### §5.24 passage 正文里的裸 `<` —— 浏览器吃掉 `</if>`
+
+**现象**：社区 issue #582「荒原钓鱼遇袭 `cannot find a closing tag for macro <<if>>`」，我们的包也有。
+静态 unescape 后看，`<</if>>` 好好的。
+
+**实际根因**：`ZZ01_final_guard.py` 修 `<<</if>>` 时写成
+`for a, b in ((H.escape(old), new), (old, new))` —— **转义形态的旧串被替换成了未转义的新串**，
+裸 `<</if>>` 进了 `<tw-passagedata>`。浏览器 HTML 解析把 `</if>` 当成无主结束标签丢弃，
+SugarCube 读 `textContent` 得到 `<>`。
+
+**判据**：`C.no_raw_angle_in_passage` —— **查原始字节**：`<tw-passagedata>` 正文里不得出现任何 `<` `>`。
+**教训**：**`html.unescape` 之后再查，永远看不见这类问题。** 替换对必须写成
+`(H.escape(old), H.escape(new))`，两边同形态。
+
+### §5.25 宏表达式里 `_x` 当箭头参数 / const 名
+
+**现象**：服装店每件商品都报 `SyntaxError: Malformed arrow function parameter list`。
+
+**实际根因**：引擎的 `Scripting.parse` 把表达式里**所有** `_name` 词元改写成 `State.temporary.name`，
+`find(_k => _k !== "all")` 变成 `find(State.temporary.k => …)`；`for (const _sk of …)` 变成 `const State.temporary.sk`。
+第10轮我自己写的 R10/R17 就是这样 —— 而当时的单元测试 `T02` 只做了 `$→_` 文本替换，`_k => …` 在 Node 里照样能跑。
+
+**判据**：`C.sc_compile`（`T03_sc_compile_all.js`：**从 index 里抠出引擎自己的 `Scripting.parse`**，
+对全部 19 万个宏表达式先 parse 再 `new Function` 编译）+ `C.no_tempvar_as_param`。
+**教训**：**测 SugarCube 表达式，必须用引擎自己的 parse**，不要自己写 `is→===` 的近似转换。
+
+### §5.26 ModI18N 运行时 JS 替换的位移失配
+
+**现象**：成就描述 299 条只有 47 条是中文、提示 152 条只有 2 条中文；
+同一批成就名被换成了我们的自译（官方「第一桶金」→「零钱」）。**静态看 `setup.feats` 根本没有描述的中文**，
+于是第11轮我以为「描述/提示官方没翻」。
+
+**实际根因**：ModI18N 在**运行时**按 `(文件名, pos)` 替换 JS，窗口只有 `pos-10 ~ pos+len+30`。
+我们的静态翻译脚本（AC06 / AB06~AB13 / P05~T10）改了同一 JS 文件前部的文字长度，后面的官方条目全部错位失配。
+黄金基线里这些描述在运行时是 299/299 中文。
+
+**修法**：`AP01_bake_js_i18n.py` 在构建最早期（BE_bake 之后、任何改 JS 的脚本之前）
+按 ModI18N 完全相同的算法把官方 JS 译文烘焙进 index；我们的自译只处理官方没覆盖的残余。
+**判据**：`RT_GATE` G5（运行时成就 title/desc/hint 中文覆盖不低于基线）。
+**教训**：**「静态没有中文」≠「玩家看到的是英文」。判断翻译覆盖率只认运行时（§2.1 第①层）。**
+**改 JS 文本之前先问：ModI18N 有没有这个文件的条目？有的话你会把它后面的条目全部挤歪。**
+
+### §5.27 显示值兼作逻辑值（社区 issue #583 一类）
+
+**现象**：逃离地下农场时没有「亲吻半人马」选项。
+
+**实际根因**：`<<livestock_horse>>` 的 `_text_output` 既用来显示、又被存进 `$remyEscapeSteed` 做判断；
+汉化把显示值改成「半人马」，判断 `is "centaur"` 永远为假。同类：`_sydtext is "Sydney"` / `_text_output is "meat"` /
+`_type is "harpy"` / `password[2] is "the blood moon"` / `$remyEscapeSteed is "stallion"`。
+
+**修法（①保意图）**：判断改为中英都认（`is "centaur" or is "半人马"`），**不改显示文字**，新旧存档都兼容。
+**扫描法**（`AH11_translated_logic.py`）：找 vanilla 里 `<<set X to "英文">>` 被汉化改成中文的变量，
+再找当前包里拿 X（及其二跳赋值）与英文字面量比较的地方。
+
+### §5.28 maplebirch 抢先改写 → 其它模组的锚点失配
+
+**现象**：运行时日志 `[DomRobin] cannot find findString: <<if $robinpaid isnot 1>>` 等 4 条，静态 index 里锚点明明存在。
+
+**实际根因**：maplebirch 5.6.2 的 zone 补丁先于 TweeReplacer 执行，把 `$money gte 300` 换成
+`maplebirch.get("Finance").canPay(300, "cafe")`、给 robinpaid 条件追加 `and !…orphanage.robinFree`、
+给 `fallenTransform` 外面包一层 `<<if not (…)>>`。DomRobin 只认旧 API（`VanillaPlus.finance`）。
+
+**修法**：`AR02_maplebirch_compat.py` —— 锚点改成「不含 `>>` 的前缀」或在正则里加新 API 分支；
+DoLSims 那条用 `$1` 保留 maplebirch 的外层开标签（否则它的 `<</if>>` 落单）。
+**判据**：`RT_GATE` G2（ModLoader 日志里没有 TweeReplacer / zone 错误）。
+**教训**：**静态 index 不是 TweeReplacer 看到的内容。** 锚点诊断要用运行时导出的 passage（§2.5）。
+**另**：第11轮记的「Toilet Addon 4 条已知不可修」已过期 —— 那 4 个 passage 由枯木逢春等模组在运行时提供，补丁实际全部成功。
+
+### §5.29 `<<npcrelationship>>` 传了中文名
+
+**现象**：关系面板每个 NPC 的描述行都可能报「`<<npcrelationship>>`提供了错误的参数」；
+maplebirch 日志 `[zone] 补丁 Widgets #2: unmatched`。
+
+**实际根因**：第10轮修 relation-box 宏嵌套时，把参数换成了 `setup.NPC_CN_NAME(_npcData.nam)`，
+而 `<<npcrelationship>>` 内部用 `V.NPCName.findIndex(i => i.nam === _args[0])` 查**英文原名**；
+显示处又换成了 `<<print setup.NPC_CN_NAME(…)>>`，maplebirch 的 zone 正则只认 `\t<<NPC_CN_NAME _npcData.nam>>`。
+
+**修法**：参数恢复 vanilla 的 `_npcData.nam`；显示处恢复 `<<NPC_CN_NAME _npcData.nam>>` 宏形态。
+**教训**：**修 A 时把 B 的输入也改了。改任何 widget 的参数前，先打印该 widget 怎么用参数。**
+
+### §5.30 模组自带 twee 的跨行字符串
+
+**现象**：「对银海螺说话」(Silver Conch Talk) 永远没有对话内容。
+
+**实际根因**：Wraith'sReflection 的 `<<set _chat.push("……\n<br><br>\n……")>>` —— 双引号字符串跨行，
+`<<set>>` 交给 eval 时是 `SyntaxError`，`_chat` 永远是空数组。**模组源码自带的 bug**，与汉化无关。
+
+**修法**：只在这几处字符串字面量内部把「换行+缩进」折叠成一个空格（文本、`<br>` 原样保留）。
+**判据**：`E.mod_twee_compile`（T03 `--twee-dir` 扫全部模组 twee）。
+
+> **§5.31 ~ §5.36 是第12/13轮补充。**
+
+### §5.31 i18n 烘焙「替换第一处出现」造成的错位翻译
+
+**现象**：运行时 166 段官方有译文却是英文；同时出现 `<<He>>含着 <<his>> hand up…`、`一个天使ic`、`unlockAvery鞠躬` 这类半英半中/标识符被译。
+
+**实际根因**：旧 `BE_bake_i18n` 在 `pos` 精确比较失败后退回 `body.replace(f, t, 1)`。官方 i18n 有约 3.1 万条 `pos` 比原文偏 -1/-2
+（ModI18N 自己按 ±2 容错），这些条目全走了兜底；原文在 passage 里重复出现时就替换到了别处，连带把同 passage 的长条目打断。
+
+**修法**：`BE2_bake_i18n.py` 完全按 ModI18N 运行时算法（`tryReplaceStringFuzzyWithHintIndexComp`）定位：升序、±2、窗口 -10/+30、不重叠；失配只跳过该条。
+**判据**：在 vanilla 上 190165 条全部命中、0 失配；运行时英文残留 182 段 → 20 段（`AU01_runtime_english.py`）。
+**教训**：**烘焙/替换必须复刻消费方的定位算法**，不要自己发明「找不到就替换第一处」。
+
+### §5.32 不看位置的全量替换把变量路径改坏
+
+**现象**：社交面板显示「贝利>>」；`<<if _npcData.nam is "Ivory Wraith">>` 等被套上宏。
+
+**实际根因**：`UB01_full_bake`（「先烤入再查漏补缺」）对每个 passage 把官方条目的 `f` **全部出现处**都换成 `t`。
+官方有条目 `f="_npcData.nam"` → `t="<<NPC_CN_NAME _npcData.nam>>"`（译文包含原文），于是代码里的变量也被换、已换过的再套一层。
+
+**修法**：`is_safe()` 加两条：`f` 是变量/属性路径（`_x.y` / `T.a.b`）不替换；`t` 包含 `f`（包裹式翻译）不替换。
+**判据**：F 组 `_npcData.nam>>>>` / `<<NPC_CN_NAME <<` 为 0；RT_GATE G8（渲染文本无 `<<` `>>`）。
+
+### §5.33 翻译表被二次赋值（§5.20 的同类，第13轮全量扫）
+
+**现象**：角色名与正文不一致（Jordan 正文「约旦」520 处，名字处显示「乔丹」；River 瑞沃/里弗、Wren 伦恩/雷恩……）；
+头衔表 businessperson / crimson hound 等变回英文。
+
+**实际根因**：早期 `AD_direct_patch` 注入的临时表（`NPCNameList_cn_name` 412 字符、`NPCTitleList_cn_name` 605 字符）
+排在官方表后面，覆盖了官方表（414 / 1072 字符）。§5.20 只给 `CafeFoodList` 和 `NPCTypeList` 写了断言，其它表漏查。
+
+**修法**：`AW02_merge_dup_tables.py`：以官方表为准，临时表里官方没有的键追加；只保留一处赋值。
+**判据**：`D.all_cn_tables_single`（**所有** `setup.*_cn_name` 只赋值一次）+ `D.npcname_official`。
+**教训**：**§5.20 的扫描口径要做成断言覆盖全部表**，不要只写当时出事的那两张。
+
+### §5.34 自建补丁模组遮蔽了官方映射表
+
+**现象**：钓鱼开场「herring咬住了钩上的黑莓」——15 种鱼名全是英文，官方表里明明都有。
+
+**实际根因**：`Npc Name CN` 1.3.0 起「强制接管」`setup.NPC_CN_TYPE/NAME/TITLE`，只查自己内置的小表（60 类 / 39 名），
+官方 `NPCTypeList_cn_name`（248 类）被完全绕过。194 个类型键只靠 index 里的 EXTRA 兜底，没兜到的显示英文。
+
+**修法**：`AW03` 把模组升到 1.4.0：「官方表 → 内置表 → 原样」，官方表按内容缓存；官方表的已知错译单独覆盖（`fish`→鱼，官方写成「海星」；`baitfish` 官方缺，取 foodstuff 的「饵鱼」）。同步更新模组 `version` 与 `description`。
+**判据**：`E.npcnamecn_official_first`；RT_GATE G7（运行时 `NPC_CN_TYPE("herring")` = 鲱鱼，鱼名 0 个未翻）；Node 单测 `T06` 14/14。
+**教训**：**「强制接管」类补丁必须把被接管方的数据源接过来**，否则就是用小表替换大表。
+
+### §5.35 X05 全文件解实体 + 错误的「双重转义」断言
+
+见第12轮报告第一节第 5 条。**判据口径**：`&amp;lt;` / `&amp;gt;` 逐 passage 与 vanilla 相等（`C.no_double_escape` 已改），
+不是「全文件为 0」——原版源码里本来就有合法的 `&lt;`。
+
+### §5.36 签名口令随脚本副本进了公开仓库（GitGuardian 告警）
+
+**现象**：GitGuardian 报 `Keystore Password exposed`（仓库 `DoL-Lyra-ModFixes`）。
+
+**实际根因**：`build.py` 等脚本里写死了 `--ksPass` / `--ksKeyPass` 的口令，脚本副本被复制进 `repo\docs\`；模板正文也写了口令。
+`.jks` 文件本身从未入库（`git log --all` 核实），所以光有口令签不了包。
+
+**修法**：`build.py` 改读环境变量 `DOL_KS_PASS`，否则读本机 `work\keystore.local`（不入库、不复制进 repo）；
+仓库与模板里的明文全部替换成占位符（`AX01_secret_scan.py --redact`）。用户选择不改写 git 历史、不更换密钥（更换会导致无法覆盖安装、存档丢失）。
+**判据**：**每次往 repo 提交前跑 `python AX01_secret_scan.py E:\TAML\_dol\repo`，非 0 不许提交。**
+**教训**：脚本里不写任何口令 / token；复制脚本进公开仓库前必须过密钥扫描。
+
+---
+
+### §2.5（补）运行时导出 —— 第12轮起的标准诊断入口
+
+`cdp_suite.js` 的 `dump` 步骤把**运行时**全部 passage / widget / init / script 原文导出成 jsonl
+（`Story.lookupWith` + `getAllWidget` + `getAllInit` + `getAllScript`；注意 `lookupWith` **不含 widget**）。
+`AK01_runtime_to_html.py` 把它拼回伪 index，于是 T03 / `scan_lib.struct_regressions` 等静态工具都能直接查运行时内容。
+`AK03_runtime_diff.py` 对比「静态 → 运行时」被哪些机制改写过。
+
+---
+
 ## §6 验收标准
 
 ### §6.1 静态回归（`REGRESS_ALL.py`，60 项）
@@ -985,7 +1259,29 @@ for s in parts:
 | F | 历史修复防复发 | 32 |
 
 **跑法**：`python REGRESS_ALL.py`，**退出码 0 才算过**。
-**已接进 `build.py` 第 7.5 步**，每次构建自动跑。
+**第12轮起 `build.py` 改为「先验后发」**：签名后依次跑 REGRESS_ALL → validate → exec_verify → RT_GATE，
+**任何一项失败都不归档、不覆盖 out/**（旧流程先覆盖 out/ 再跑回归，失败只告警 —— 坏包照样被部署）。
+第12轮新增断言：`C.sc_compile` / `C.no_tempvar_as_param` / `C.struct_vs_vanilla`（**对照 vanilla，不是汉化基线**）/
+`C.no_raw_angle_in_passage` / `E.mod_twee_compile` / `E.tr_regex_no_charclass_trap` / `E.no_quoted_link_fix` /
+F 组 10 条（#579/#583 同类、`<<case "nobody">>`、Wraith 台词转义、npcrelationship 中文参数）。
+
+### §6.4 运行时验证门 `RT_GATE.py`（第12轮新增，构建必过）
+
+| 项 | 判据 |
+|---|---|
+| G1 | 页面就绪 |
+| G2 | ModLoader 日志无 TweeReplacer / zone 补丁错误 |
+| G3 | **运行时**全部 passage+widget 宏表达式经引擎 parse 后可编译 |
+| G4 | **运行时**宏结构不比 vanilla 多出错误 |
+| G5 | 运行时成就 title/desc/hint 中文覆盖不低于黄金基线 |
+| G6 | 新档开局（Start2 → 孤儿院 → 卧室）、社交面板、服装店、森林商店、钓鱼、#582/#583/#584 现场等零红字 |
+| G7 | （第13轮）运行时查名函数走官方映射表：`NPC_CN_TYPE("herring")`=鲱鱼 等，鱼名 0 个未翻 |
+| G8 | （第13轮）测试步骤渲染出的文字里没有 `<<` / `>>` 残留（「贝利>>」这类） |
+| G9 | （第13轮）RT_GATE 解出 APK 的 `assets/www` 交给 `cdp_suite` 提供（`DOL_WWW`），测试流程中请求的静态资源无 404（原版也没有的 `modList.json` / `style.css` / `usettings.js` 除外） |
+
+**`cdp_suite.js` 会数页面里 `.error` 元素** —— SugarCube 的宏错误是渲染进页面的，不抛异常；
+旧 `cdp_flow.js` 只收 `exceptionThrown` / `console.error`，所以「10 步 0 错误」看不见红字。
+**直接 `Engine.play` 某个中途 passage 前要先 `play("Start2")`**，否则 `$shopDefaults` 等新档变量不存在，会冒出探针自己造成的红字。
 
 ### §6.2 CDP / 单元测试
 
@@ -1020,6 +1316,9 @@ for s in parts:
 7. 写报告 → 推 GitHub
 ```
 
+> **每轮开工前先过一遍 §0.4 / §0.5**：这一轮有哪些活属于翻译、批量统计、日志归类、
+> 重复代码生成？能外派的先派出去并行跑，主模型只做判断与验收，别自己一条条干。
+
 ### §7.2 报告要求
 
 每轮至少产出：
@@ -1030,9 +1329,11 @@ for s in parts:
 
 ### §7.3 GitHub
 
-- 仓库：`1579486875/DoL-Lyra-ModFixes`
+- 仓库：`1579486875/DoL-Lyra-ModFixes`（**公开仓库**）
 - 本地：`E:\TAML\_dol\repo`
 - `docs\` 放报告 + 关键脚本
+- **提交前必跑** `python E:\TAML\_dol\work\AX01_secret_scan.py E:\TAML\_dol\repo`（非 0 不许提交，见 §5.36）；
+  提交身份沿用历史提交的 `GNH <1579486875@qq.com>`（用 `git -c user.name=… -c user.email=…`，不改全局配置）
 
 ### §7.4 关于「更新模组描述和工坊简介」
 
@@ -1069,9 +1370,14 @@ DoL-Lyra 是 **APK 分发**，不是 Steam 工坊。对应的「描述」是：
 |---|---|
 | `A*`~`P*` | 历次审查轮次的脚本（按时间） |
 | `R*`/`Q*`/`T*` | 第 10 轮（R=诊断，Q=relation-box，T=模板/英文） |
-| `ZZ01_final_guard` | 最终守门（11 类检查） |
+| `ZZ01_final_guard` | 最终守门（11 类检查）—— 第12轮修了它自己的「转义旧串换成未转义新串」 |
 | `TF01_nest_guard` | **必须永远最后** |
-| `REGRESS_ALL` | 60 项回归套件 |
+| `REGRESS_ALL` | 回归套件（第12轮约 85 项） |
+| `RT_GATE` | **运行时验证门**（第12轮新增，构建必过） |
+| `scan_lib.py` / `modzip_lib.py` | 宏边界切分 / 结构对照 vanilla / 改模组 ZIP 的公共库（第12轮新增） |
+| `T03_sc_compile_all.js` | 用引擎自己的 `Scripting.parse` 编译全部宏表达式（`--twee-dir` 可扫模组 twee） |
+| `cdp_suite.js` + `plan_*.json` | 一次加载、多步检查、**数页面红字**、可导出运行时 passage |
+| `AP01_bake_js_i18n` | 官方 JS 译文烘焙（必须在任何改 JS 文本的脚本之前） |
 | `probe_*.js` | CDP 探针 |
 | `cdp_*.js` | CDP 测试器 |
 | `T*_unit_test*.js` | Node 单元测试（不需要 CDP） |
@@ -1081,12 +1387,15 @@ DoL-Lyra 是 **APK 分发**，不是 Steam 工坊。对应的「描述」是：
 ```
 基线 passage     16088   （当前 16089 = 基线 + 我新建的 Widgets Repair）
 基线 widget      5104
-模组数量         ≥58
+模组条目         57（第12轮撤下 Quoted Link Fix：56 个 ZIP 模组 + 1 个枯木逢春 modpack）
 NPCTypeList      248 条（只赋值 1 次）
 EXTRA 表         ≥155 键
 Npc Name CN      76 键（BODYPARTS）
 CafeFoodList     25 词（只赋值 1 次）
 Template.add     13 个名字，不含中文
+ModI18N          1.0.1a（与社区 Eltirosto 发布版逐字节一致）；JS 条目 7853，在 vanilla 上 7853/7853 全部可命中
+运行时 passage   约 17992（含 widget/init/script；静态 16089）
+运行时成就中文   基线 title 298/299 · desc 299/299 · hint 152/152
 arsc             STORED
 签名             SHA256withRSA
 ```
@@ -1103,3 +1412,12 @@ arsc             STORED
 8. **审计脚本报错先怀疑脚本**
 9. **扫出异常先确认是不是在注释里**
 10. **注释用 `<!-- -->`，不用 `/* */`**
+11. **玩家看到的是运行时**：翻译覆盖率、补丁是否命中、结构是否正确，一律以运行时导出为准（§2.5）
+12. **结构判据对照 vanilla 英文原版**，不对照汉化基线 ——「与基线相同」只说明问题来自汉化包，不说明无害
+13. **测 SugarCube 表达式用引擎自己的 `Scripting.parse`**（T03），`_x` 不能当箭头参数
+14. **查原始字节**：passage 正文不得有裸 `<` `>`；替换对两边同为转义形态
+15. **「死链」先查 `evalPassageId`**；正则补丁先在 Node 里看命中片段
+16. **构建先验后发**：REGRESS / validate / exec_verify / RT_GATE 任何一项失败都不部署
+17. **烘焙/替换复刻消费方算法**；不看位置的全量替换必须排除变量路径和「译文包含原文」的条目
+18. **所有翻译表只赋值一次**；「强制接管」类补丁要接管对方的数据源
+19. **脚本里不写口令**；往 repo 提交前跑 `AX01_secret_scan.py`
