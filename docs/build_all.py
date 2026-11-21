@@ -104,6 +104,9 @@ STEPS = [
     (r"E:\TAML\_dol\work\AU09_translate_residue.py", "补译运行时仍为英文且官方无条目的 2 处玩家可见文本（第13轮）"),
     (r"E:\TAML\_dol\work\AW02_merge_dup_tables.py", "合并被临时表覆盖的官方 NPCNameList/NPCTitleList（第13轮）"),
     (r"E:\TAML\_dol\work\AW03_npcnamecn_official.py", "Npc Name CN 1.4.0：官方映射表优先（鱼名/角色名与正文一致，第13轮）"),
+    (r"E:\TAML\_dol\work\AY03_mod_notes.py", "给修补过的第三方模组写修补说明（模组描述同步，第14轮）"),
+    (r"E:\TAML\_dol\work\BA01_add_shopdetails.py", "补全 shopDetails 缺失的5个特质定义（Forest Shop筛选器崩溃，第14轮）"),
+    (r"E:\TAML\_dol\work\BA02_loadfilter_guard.py", "loadFiltersMenu widget 加防护（未注册特质不崩溃，第14轮）"),
     (r"E:\TAML\_dol\work\TF01_nest_guard.py", "检查并修复 widget 嵌套（必须最后）"),
     # 注：R10/R17 原本在 TF01 之后又重复登记了一次（幂等跳过、无实际作用），
     #     违反「TF01 永远最后」—— 第12轮移除，二者已在上方 TF01 之前执行。

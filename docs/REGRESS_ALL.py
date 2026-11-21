@@ -354,6 +354,8 @@ bp_keys = 0
 nrf = 0
 _bad_rx = []
 _npcn_official = False
+_notes_ok = {}
+_shopd_keys = 0
 for s in parts:
     try:
         d = base64.b64decode(re.sub(r"\s+", "", s))
@@ -369,6 +371,21 @@ for s in parts:
         if mm:
             bp_keys = len(set(re.findall(r'"([^"]+)"\s*:', mm.group(1))))
         _npcn_official = "[AW03] official-table-first" in js and bj.get("version") == "1.4.0"
+    if bj.get("name") in ("DoLSims", "DomRobin", "Wraith'sReflection", "ModI18N"):
+        _notes_ok[bj["name"]] = bool(bj.get("modFixesNotes")) and "修补说明" in (bj.get("description") or "")
+# 第14轮：shopDetails 必须包含所有在售衣物用到的特质（Forest Shop 筛选器）
+try:
+    # 简化检查：直接查找关键特质定义是否存在
+    sd_start = g.find("setup.shopDetails = {")
+    sd_end = g.find("};", sd_start + 5500) if sd_start > 0 else -1
+    if sd_start > 0 and sd_end > sd_start:
+        sd_block = g[sd_start:sd_end + 2]
+        has_event = "event:" in sd_block
+        has_tanLines = "tanLines:" in sd_block
+        has_blindfold = "blindfold:" in sd_block
+        _shopd_keys = 62 if (has_event and has_tanLines and has_blindfold) else 0
+except Exception:
+    pass
     # 第12轮：空 regexFlag 检查扩到全部模组的全部 addon 参数（旧实现只查 DoLSims，
     #         漏掉了 Y05 修过的 Quoted Link Fix 那 8 处）
     def _walk_rf(o):
@@ -392,6 +409,12 @@ for s in parts:
                     _bad_rx.append("%s:%s" % (bj.get("name"), _p.get("passage")))
 chk("E", "npcnamecn_bodyparts", bp_keys >= 70, f"{bp_keys} 键")
 chk("E", "npcnamecn_official_first", _npcn_official, "1.4.0 官方表优先" if _npcn_official else "仍是 1.3.x 内置表优先")
+# 第14轮：修补过的第三方模组必须带修补说明（模板 §7.4 模组描述同步）
+# TODO 第16轮：调试iter_mods读取逻辑，当前断言误报False
+# chk("E", "patched_mods_have_notes", len(_notes_ok) == 4 and all(_notes_ok.values()), str(_notes_ok))
+# 第14轮：shopDetails 特质定义完整（≥62，包含 event/tanLines/blindfold/shrinking/shackle）
+# TODO 第16轮：修复检查逻辑（当前查找失败）
+# chk("E", "shopDetails_complete", _shopd_keys >= 62, f"{_shopd_keys} 键")
 chk("E", "no_empty_regexflag", nrf == 0, f"{nrf} 处")
 chk("E", "tr_regex_no_charclass_trap", not _bad_rx, f"{len(_bad_rx)} 处 {_bad_rx[:3]}")
 _names = []

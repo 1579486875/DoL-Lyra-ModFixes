@@ -156,6 +156,38 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       const src = fs.readFileSync(path.resolve(path.dirname(process.argv[3]), st.file), "utf8");
       const v = await evalJs(src, 300000);
       try { rec.value = typeof v === "string" ? JSON.parse(v) : v; } catch (e) { rec.value = v; }
+    } else if (st.type === "crawl") {
+      // 第14轮：passage 遍历 —— 每个 passage 都从同一份变量快照出发（JSON 往返，SugarCube 的 reviveWrapper 能还原自定义类型），
+      // Engine.play(name, true) 不写历史，渲染后数 #passages 里的红字。同一份名单分别在 vanilla 与整合包上跑，再对比。
+      const names = JSON.parse(fs.readFileSync(path.resolve(path.dirname(process.argv[3]), st.names), "utf8"));
+      const outPath = path.resolve(path.dirname(process.argv[3]), st.out || "_crawl.jsonl");
+      const fd = fs.openSync(outPath, "w");
+      await evalJs("window.__crawlSnap = JSON.stringify(SugarCube.State.variables); window.__crawlSnap.length", 60000);
+      const B = st.batch || 150;
+      let done = 0, bad = 0, t1 = Date.now();
+      for (let i = 0; i < names.length; i += B) {
+        const part = names.slice(i, i + B);
+        const r = await evalJs(`(function(list){var SC=window.SugarCube,out=[];
+          for(var q=0;q<list.length;q++){var n=list[q];
+            try{var v=SC.State.variables;Object.keys(v).forEach(function(k){delete v[k];});
+              Object.assign(v, JSON.parse(window.__crawlSnap));
+              var t0=performance.now();SC.Engine.play(n,true);
+              var els=document.querySelectorAll('#passages .error, #passages .error-view, #passages .macro-error');
+              out.push([n,els.length,Array.prototype.slice.call(els,0,3).map(function(e){return ((e.getAttribute('title')||'')+' ⟹ '+e.textContent).slice(0,300);}),Math.round(performance.now()-t0),SC.State.passage]);
+            }catch(e){out.push([n,-1,[String(e&&e.message||e).slice(0,300)],0,""]);}
+          }
+          return JSON.stringify(out);})(${JSON.stringify(part)})`, 600000);
+        if (typeof r !== "string") {
+          for (const n of part) fs.writeSync(fd, JSON.stringify([n, -9, ["批次超时/异常 " + JSON.stringify(r).slice(0, 200)], 0, ""]) + "\n");
+          bad += part.length;
+        } else {
+          for (const row of JSON.parse(r)) fs.writeSync(fd, JSON.stringify(row) + "\n");
+        }
+        done += part.length;
+        if ((i / B) % 10 === 0) console.log(`    crawl ${done}/${names.length}  ${Math.round((Date.now() - t1) / 1000)}s`);
+      }
+      fs.closeSync(fd);
+      rec.out = outPath; rec.total = names.length; rec.batchFail = bad;
     } else if (st.type === "dump") {
       // 把运行时（ModI18N / TweeReplacer / 各模组改写之后）的全部 passage 原文导出，供静态工具复查
       const n = await evalJs("(window.__dumpList = [].concat(" +
