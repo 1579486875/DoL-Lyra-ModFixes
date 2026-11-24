@@ -85,11 +85,9 @@
 				on: { accident: true, tear: true, battle: true, photo: true, home: true, pregnant: true },
 				cool: {},
 				lastBladder: null,
-				lastBladderFull: 0,
 				lastPhoto: null,
 				lastShots: null,
 				lastCombat: false,
-				homeNude: false
 			};
 			return;
 		}
@@ -203,7 +201,6 @@
 	/* ============ 联动 2：服装破损 → 走光 ============ */
 
 	var TEAR_SLOTS = ['upper', 'lower', 'under_upper', 'under_lower'];
-	var TEAR_NAMES = { upper: '上衣', lower: '下装', under_upper: '内衣', under_lower: '内裤' };
 
 	function onTearCheck() {
 		if (!enabled('tear')) return;
@@ -440,14 +437,12 @@
 			var bn = safe(function () { return V.BasicNeeds; }, null);
 			if (bn) {
 				var cur = safe(function () { return bn.bladder; }, 0) || 0;
-				var curFull = safe(function () { return bn.bladderFullHrs; }, 0) || 0;
 				var last = V.联动.lastBladder;
 
 				if (last !== null && last >= 9000 && cur === 0 && !inReliefScene()) {
 					onAccident();
 				}
 				V.联动.lastBladder = cur;
-				V.联动.lastBladderFull = curFull;
 			}
 
 			/* —— 联动 2：服装破损 → 走光 —— */
