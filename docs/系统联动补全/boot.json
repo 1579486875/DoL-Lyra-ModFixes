@@ -1,0 +1,23 @@
+{
+  "name": "系统联动补全",
+  "nickName": {
+    "cn": "系统联动补全",
+    "en": "System Interactions"
+  },
+  "version": "1.0.0",
+  "styleFileList": [],
+  "scriptFileList": [
+    "scripts/core.js"
+  ],
+  "tweeFileList": [
+    "twee/text.twee"
+  ],
+  "imgFileList": [],
+  "addonPlugin": [],
+  "dependenceInfo": [
+    {
+      "modName": "ModLoader",
+      "version": "^2.0.0"
+    }
+  ]
+}
