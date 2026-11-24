@@ -82,11 +82,12 @@
 			V.联动 = {
 				version: VERSION,
 				debug: false,
-				on: { accident: true, tear: true, battle: true, photo: true, home: true },
+				on: { accident: true, tear: true, battle: true, photo: true, home: true, pregnant: true },
 				cool: {},
 				lastBladder: null,
 				lastBladderFull: 0,
 				lastPhoto: null,
+				lastShots: null,
 				lastCombat: false,
 				homeNude: false
 			};
@@ -139,15 +140,16 @@
 			return maplebirch && maplebirch.get && maplebirch.get('Finance').realEstate.current;
 		}, null);
 		if (cur) return true;
-		return /Deadwood Reblooms|Flats Own|Cottage|Manor|Estate/i.test(currentPassage());
+		// 只匹配确定的房产 passage，避免 "Estate Cards" 这类作弊卡误判
+		return /Deadwood Reblooms|Flats Own (Room|Shower|Bath)|Orphanage Bedroom|Cottage Interior|Manor Bedroom/i.test(currentPassage());
 	}
 
-	/** 当前是否公共场合（有暴露判定或在外） */
+	/** 当前是否公共场合 */
 	var PUBLIC_RE = /street|alley|park|road|high street|shopping|market|beach|lake|forest|farm|school|shop|cafe|pub|club|brothel|prison/i;
 	function inPublic() {
-		if (PUBLIC_RE.test(currentPassage())) return true;
-		// 暴露状态 1/2 也是公共信号
-		return safe(function () { return V.exposed; }, 0) >= 1;
+		// 先排除自家 —— $exposed 是"暴露程度"不是"地点"，不能拿它判公共
+		if (inOwnHome()) return false;
+		return PUBLIC_RE.test(currentPassage());
 	}
 
 	/** 是否介意裸体 */
@@ -229,19 +231,28 @@
 
 		if (!worst) return;
 
+		// 走光的名声只在"该槽位第一次破到这个程度"时给一次，
+		// 否则每 5 分钟 +1，一天就能把 2000 上限刷满。
+		var key = 'tearFamed_' + worst;
+		var famed = safe(function () { return V.联动[key]; }, false);
+
 		if (worstRatio < 0.35) {
-			// 走光
 			if (cooling('tear_' + worst, 5 * 60 * 1000)) return;
 			addStress(60);
-			addFame(1);
+			if (!famed) {
+				addFame(1);
+				V.联动[key] = true;
+			}
 			ShowBanner('tear_broken');
-			log('走光', worst, worstRatio.toFixed(2));
+			log('走光', worst, worstRatio.toFixed(2), famed ? '(名声已计)' : '(首次)');
 		} else if (worstRatio < 0.7) {
-			// 半透
 			if (cooling('tear_thin_' + worst, 5 * 60 * 1000)) return;
 			addStress(20);
 			ShowBanner('tear_thin');
 			log('半透', worst, worstRatio.toFixed(2));
+		} else {
+			// 修好了就重置标记，下次再破还能再计一次
+			if (famed) V.联动[key] = false;
 		}
 	}
 
@@ -265,7 +276,8 @@
 		if (bladder >= 8000) urgent.push('bladder');
 		if (!urgent.length) return;
 
-		if (cooling('battle', 5 * 60 * 1000)) return;
+		// 冷却 15 分钟：防止反复开关战刷压力
+		if (cooling('battle', 15 * 60 * 1000)) return;
 
 		if (bladder >= 8000) {
 			// 尿意最拖累，优先
@@ -283,31 +295,38 @@
 
 	/**
 	 * 手机每次拍照 V.Phone.photography += 1（上限 1000，每天限 10 次）。
-	 * 这里靠它的增长判定"刚拍了照"，再按场合给名声。
-	 * 上限 1000 后不再增长，所以不会无限刷。
+	 * 满 1000 后 photo 不再增长，所以同时看 $daily.cameraShots（每日计数）做兜底。
 	 */
 	function onPhotoCheck() {
 		if (!enabled('photo')) return;
-		var cur = safe(function () { return V.Phone && V.Phone.photography; }, null);
-		if (cur === null) return;
-		var last = V.联动.lastPhoto;
-		V.联动.lastPhoto = cur;
 
-		if (last === null || cur <= last) return;   // 没拍照
+		var curP = safe(function () { return V.Phone && V.Phone.photography; }, null);
+		var curS = safe(function () { return V.daily && V.daily.cameraShots; }, null);
 
-		if (cooling('photo', 60 * 1000)) return;    // 1 分钟内只算一次
+		var lastP = V.联动.lastPhoto;
+		var lastS = V.联动.lastShots;
+		V.联动.lastPhoto = curP;
+		V.联动.lastShots = curS;
+
+		// 首次运行只建立基线
+		if (lastP === null && lastS === null) return;
+
+		// 任一指标增长即视为刚拍照
+		var photoUp = (curP !== null && lastP !== null && curP > lastP);
+		var shotUp = (curS !== null && lastS !== null && curS > lastS);
+		if (!photoUp && !shotUp) return;
+
+		if (cooling('photo', 60 * 1000)) return;
 
 		var exposed = safe(function () { return V.exposed; }, 0) || 0;
 
 		if (exposed >= 1) {
-			// 暴露状态下拍 —— 照片本身就是证据
 			addFame(5);
 			addStress(100);
 			addArousal(60);
 			ShowBanner('photo_exposed');
 			log('拍照·暴露');
 		} else if (inPublic()) {
-			// 公共场合拍 —— 有点张扬
 			addFame(1);
 			ShowBanner('photo_public');
 			log('拍照·公共');
@@ -326,16 +345,53 @@
 		if (!inOwnHome()) return;
 		var exposed = safe(function () { return V.exposed; }, 0) || 0;
 		if (exposed < 1) return;
-		if (cooling('home_relief', 3 * 60 * 1000)) return;
+		// 冷却 10 分钟：3 分钟一次的话一天能削 9600，等于免疫压力
+		if (cooling('home_relief', 10 * 60 * 1000)) return;
 
 		var stress = safe(function () { return V.stress; }, 0) || 0;
 		if (stress <= 0) return;
 
-		// 削减 8%，最多 200，避免一次抹平
+		// 削减 8%，最多 200，最少 20，避免一次抹平
 		var cut = Math.min(200, Math.max(20, Math.round(stress * 0.08)));
 		addStress(-cut);
 		ShowBanner('home_relief');
 		log('在家放松 -' + cut);
+	}
+
+	/* ============ 联动 6：怀孕 → 身体不适（尿频是常识） ============ */
+
+	/** 是否怀孕中（$pregnancies 里有未分娩的项） */
+	function isPregnant() {
+		try {
+			var arr = V.pregnancies;
+			if (!Array.isArray(arr)) return false;
+			for (var i = 0; i < arr.length; i++) {
+				var p = arr[i];
+				if (!p) continue;
+				if (p.deliveredDate === null || p.deliveredDate === undefined) return true;
+			}
+			return false;
+		} catch (e) { return false; }
+	}
+
+	/**
+	 * 怀孕时膀胱被压迫，尿意高会比平时更难受。
+	 * 不改 BasicNeeds 的速率（那要动模组内部），只加额外压力与提示。
+	 */
+	function onPregnantCheck() {
+		if (!enabled('pregnant')) return;
+		if (!isPregnant()) return;
+
+		var bn = safe(function () { return V.BasicNeeds; }, null);
+		if (!bn) return;
+		var bladder = safe(function () { return bn.bladder; }, 0) || 0;
+		if (bladder < 7000) return;
+		// 冷却 30 分钟：怀孕不适是持续状态，但不该累积到一天刷满 10000
+		if (cooling('pregnant', 30 * 60 * 1000)) return;
+
+		addStress(30);
+		ShowBanner('pregnant_bladder');
+		log('怀孕·尿意不适');
 	}
 
 	/* ============ 文本投递 ============ */
@@ -409,6 +465,9 @@
 
 			/* —— 联动 5：在自家放松 —— */
 			onHomeRelief();
+
+			/* —— 联动 6：怀孕 → 尿意不适 —— */
+			onPregnantCheck();
 		} catch (e) {
 			log('tick 异常', e && e.message);
 		}
@@ -436,6 +495,8 @@
 			// 摄影值同样归位，避免第一次拍照漏判
 			var ph = safe(function () { return V.Phone && V.Phone.photography; }, null);
 			if (ph !== null) V.联动.lastPhoto = ph;
+			var sh = safe(function () { return V.daily && V.daily.cameraShots; }, null);
+			if (sh !== null) V.联动.lastShots = sh;
 			V.联动.lastCombat = safe(function () { return V.combat; }, false) ? true : false;
 		} catch (e) {}
 	});
