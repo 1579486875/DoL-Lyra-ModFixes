@@ -496,6 +496,154 @@
 		} catch (e) {}
 	});
 
+
+	/* ============ 附加：入口补丁（模组冲突修复） ============ */
+
+	/**
+	 * 1) 购物中心手机店
+	 *    BasicNeeds 把主楼层的超市迁到负一层，SmartPhone 的手机店锚点
+	 *    （target: Supermarket / Supermarket Lock）失效，导致手机店永不出现。
+	 *    这里在两个楼层各补一个入口，指向 SmartPhone 原本的 passage。
+	 */
+	var PHONE_SHOP_PATCH = {
+		main: 'Shopping Centre',
+		base: 'Shopping Centre Basement',
+		shop: 'Shopping Centre Phone Shop',
+		lock: 'Shopping Centre Phone Shop Lock'
+	};
+
+	/**
+	 * 2) 枯木逢春浴室的小便/大便
+	 *    枯木逢春是加密模组（.crypt），TweeReplacer 在解密前就跑，
+	 *    所以 Toilet Addon 的 patch 打不到它的 passage。这里运行时补。
+	 */
+	var TOILET_PATCH = {
+		passage: 'Deadwood Reblooms Property Bathroom',
+		html: '<<bathroomicon "toilet">><<link [[小便 (0:01)|BasicNeeds Mall Toilet]]>><<pass 1>><</link>><br>' +
+			'<<bathroomicon "toilet">><<link [[大便 (0:05)|BasicNeeds Mall Toilet]]>><<pass 5>><</link>><br>'
+	};
+
+	function entryPatch() {
+		var passage = currentPassage();
+		if (!passage) return;
+
+		var $p = jQuery('#passages .passage').last();
+		if (!$p.length) return;
+
+		/* —— 手机店 —— */
+		if (passage === PHONE_SHOP_PATCH.main || passage === PHONE_SHOP_PATCH.base) {
+			var hasShop = false;
+			try { hasShop = SugarCube.Story.has(PHONE_SHOP_PATCH.shop); } catch (e) {}
+			var hasLock = false;
+			try { hasLock = SugarCube.Story.has(PHONE_SHOP_PATCH.lock); } catch (e) {}
+
+			if (hasShop || hasLock) {
+				var already = $p.find('a[data-passage="' + PHONE_SHOP_PATCH.shop + '"], a[data-passage="' + PHONE_SHOP_PATCH.lock + '"]').length > 0;
+				if (!already) {
+					var sels = (passage === PHONE_SHOP_PATCH.base)
+						? ['a[data-passage="Supermarket"]', 'a[data-passage="Shopping Centre"]']
+						: ['a[data-passage="Shopping Centre Basement"]', 'a[data-passage="Shopping Centre Top"]', 'a[data-passage="High Street"]'];
+					for (var i = 0; i < sels.length; i++) {
+						var $a = $p.find(sels[i]).first();
+						if (!$a.length) continue;
+						var $box = jQuery('<div class="phone-shop-entry"></div>');
+						try {
+							new Wikifier($box[0], '<<icon "phone/phones.png">><<link [[手机店 (0:01)|' + PHONE_SHOP_PATCH.shop + ']]>><<pass 1>><</link>>');
+						} catch (e) {}
+						if ($box.children().length) {
+							$a.closest('a').parent().after($box);
+							log('手机店入口已补 @' + passage);
+						}
+						break;
+					}
+				}
+			}
+		}
+
+		/* —— 枯木逢春浴室 —— */
+		if (passage === TOILET_PATCH.passage) {
+			var txt = $p.text() || '';
+			if (txt.indexOf('小便') === -1) {
+				var $target = $p.find('.passage-content').first();
+				if (!$target.length) $target = $p;
+				var $box2 = jQuery('<div class="toilet-entry"></div>');
+				try {
+					new Wikifier($box2[0], TOILET_PATCH.html);
+				} catch (e) {}
+				if ($box2.children().length) {
+					$target.append($box2);
+					log('枯木浴室厕所入口已补');
+				}
+			}
+		}
+	}
+
+	jQuery(document).on(':passagerender', function () {
+		setTimeout(function () {
+			try { entryPatch(); } catch (e) { log('入口补丁异常', e && e.message); }
+		}, 60);
+	});
+
+
+	/* ============ 附加：小黄书发帖文本修复 ============ */
+
+	/**
+	 * SmartPhone 从相册点「发布」时，msg 取的是照片预设文案（photo.msg），
+	 * 用户在 textarea 里写的内容被忽略。
+	 * 这里包装 yenotePostSubmit，把 textarea 的值优先写入。
+	 */
+	var YENOTE_TEXT_PATCH = { installed: false };
+
+	function yenoteTextFix() {
+		if (YENOTE_TEXT_PATCH.installed) return;
+		var sp = window.smartphone;
+		if (!sp || typeof sp.yenotePostSubmit !== 'function') return;
+
+		var orig = sp.yenotePostSubmit;
+
+		sp.yenotePostSubmit = function () {
+			var typed = '';
+			try {
+				var $ta = jQuery('#yenoteposttextarea');
+				if ($ta.length) typed = String($ta.val() || '').trim();
+			} catch (e) {}
+
+			// 先跑原函数（它会 unshift 新帖）
+			var before = 0;
+			try {
+				var V0 = SugarCube.State.variables;
+				before = (V0.Phone && V0.Phone.Yenotes && V0.Phone.Yenotes.length) || 0;
+			} catch (e) {}
+
+			var ret = orig.apply(this, arguments);
+
+			// 如果用户真的写了字，覆盖新帖的 msg
+			if (typed) {
+				try {
+					var V1 = SugarCube.State.variables;
+					var arr = V1.Phone && V1.Phone.Yenotes;
+					if (arr && arr.length > before) {
+						arr[0].msg = typed.replace(/\n/g, '<br>');
+						log('发帖文本已用输入框内容');
+					}
+				} catch (e) {
+					log('发帖文本覆盖失败', e && e.message);
+				}
+			}
+			return ret;
+		};
+
+		YENOTE_TEXT_PATCH.installed = true;
+		log('小黄书发帖文本补丁已安装');
+	}
+
+	/* 每次渲染都尝试安装（模组加载顺序不确定） */
+	jQuery(document).on(':passagerender', function () {
+		setTimeout(function () {
+			try { yenoteTextFix(); } catch (e) {}
+		}, 80);
+	});
+
 	window.系统联动 = {
 		version: VERSION,
 		onAccident: onAccident,
